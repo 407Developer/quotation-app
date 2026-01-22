@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Quotation Maker</title>
+
+  <!-- Modern font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <div class="app-container">
+
+    <header class="app-header">
+      <h1 id="quotationTitle">Quotation</h1>
+      <p>Create clean, professional quotations in seconds</p>
+    </header>
+
+    <section class="form-section glass">
+      
+      <div class="input-group">
+        <label>Quotation Title / Client Name</label>
+        <input type="text" id="userName" placeholder="e.g. Mr John Doe" />
+      </div>
+
+      <div class="input-group">
+        <label>Place Name</label>
+        <input type="text" id="placeName" placeholder="Office, Bedroom, Parlour" />
+      </div>
+
+      <div class="row">
+        <div class="input-group">
+          <label>Length (m)</label>
+          <input type="number" id="length" step="0.01" />
+        </div>
+
+        <div class="input-group">
+          <label>Breadth (m)</label>
+          <input type="number" id="breadth" step="0.01" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="input-group">
+          <label>Number of Doors</label>
+          <input type="number" id="doors" />
+        </div>
+
+        <div class="input-group">
+          <label>Door End Price</label>
+          <input type="number" id="doorProfilePrice" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="input-group">
+          <label>Skirting</label>
+          <select id="skirtingNeeded">
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label>Floor Type</label>
+          <select id="floorType">
+            <option value="vinyl">Vinyl</option>
+            <option value="spc">SPC</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="input-group">
+          <label>Floor Price</label>
+          <input type="number" id="price" />
+        </div>
+
+        <div class="input-group">
+          <label>Gum Price</label>
+          <input type="number" id="gumPrice" />
+        </div>
+      </div>
+
+      <button class="primary-btn" onclick="addArea()">➕ Add Area</button>
+
+    </section>
+
+    <section id="areasContainer"></section>
+
+    <div class="total-card">
+      <h2 id="grandTotal">Grand Total: ₦0</h2>
+    </div>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
