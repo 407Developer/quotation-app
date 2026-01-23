@@ -25,7 +25,7 @@ body {
   max-width: 760px;
   display: flex;
   flex-direction: column;
-  /* padding: 30px 20px; */
+  padding: 20px;
 }
 
 .app-header {
@@ -71,10 +71,10 @@ label {
 input,
 select {
   width: 100%;
-  padding: 12px /*14px*/;
+  padding: 12px;
   border-radius: 10px;
-  /* border: 1px solid #e5e7eb;
-  font-size: 14px; */
+  border: 1px solid #e5e7eb;
+  font-size: 16px;
 }
 
 input:focus,
@@ -159,6 +159,26 @@ select:focus {
   font-size: 18px;
 }
 
+/* Mobile Responsive Adjustments */
+@media (max-width: 480px) {
+  .app-container {
+    padding: 16px;
+  }
+  
+  .glass {
+    padding: 16px;
+    border-radius: 12px;
+  }
+  
+  .app-header h1 {
+    font-size: 24px;
+  }
+  
+  .row > * {
+    flex: 1 1 100%; /* Full width on very small screens */
+  }
+}
+
 @media print {
   body {
     background: white;
@@ -171,7 +191,7 @@ select:focus {
   
   .total-card {
     background: white;
-    color: balck;
+    color: black;
     border-top: 2px solid #000;
   }
 }

@@ -44,7 +44,6 @@ function addArea() {
   let fillerQty = 0;
   let skirtingGumQty = 0;
 
-  area.app
   if (placeName in area) {
     alert("this place has already been recorded")
   }
@@ -148,7 +147,7 @@ function addArea() {
 
     ${doorEndProfiles != 0 ? 
       `
-    <p className>
+    <p>
       Door Profiles: ${doorEndProfiles}
       × ₦${prices.doorProfile.toLocaleString()}
       = <em>₦${doorProfileSubtotal.toLocaleString()}</em>
