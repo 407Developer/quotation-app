@@ -1,6 +1,5 @@
-
 let grandTotal = 0;
-let area = []
+let areaNames = []; // Store names to check for duplicates
 
 function addArea() {
   const userName = document.getElementById("userName").value.trim();
@@ -10,29 +9,36 @@ function addArea() {
   const doors = parseInt(document.getElementById("doors").value) || 0;
   const skirtingNeeded = document.getElementById("skirtingNeeded").value;
   const floorType = document.getElementById("floorType").value;
-  const price = document.getElementById("price").value;
-  const gumPrice = document.getElementById("gumPrice").value;
-  const doorProfilePrice = document.getElementById("doorProfilePrice").value;
+  const price = parseFloat(document.getElementById("price").value);
+  const gumPrice = parseFloat(document.getElementById("gumPrice").value);
+  const doorProfilePrice = parseFloat(document.getElementById("doorProfilePrice").value) || 0; // Default to 0 if empty
 
+  // Validation
+  if (!placeName || isNaN(length) || isNaN(breadth)) {
+    alert("Please fill in place name, length, and breadth correctly.");
+    return;
+  }
+  
+  if (areaNames.includes(placeName.toLowerCase())) {
+    alert("This place has already been added to the quotation.");
+    return;
+  }
+
+  // Update Title if provided
+  if (userName) {
+    document.getElementById("quotationTitle").innerText = "Quotation for " + userName;
+  }
+
+  // Default Prices if not provided
   let prices = {
-    vinyl: price? price : 9000,
-    spc: 17000,
+    vinyl: price ? price : 9000,
+    spc: 17000, // Default SPC price
     skirting: 10000,
-    floorGum: gumPrice,
+    floorGum: gumPrice ? gumPrice : 4000, // Default gum price if not set
     filler: 4000,
     skirtingGum: 4000,
     doorProfile: doorProfilePrice
   };
-
-  if (!placeName || !length || !breadth) {
-    alert("Please fill in place name, length and breadth.");
-    return;
-  }
-
-
-  if (userName) {
-    document.getElementById("quotationTitle").innerText = userName;
-  }
 
   /* ---------------- CALCULATIONS ---------------- */
 
@@ -44,33 +50,23 @@ function addArea() {
   let fillerQty = 0;
   let skirtingGumQty = 0;
 
-  if (placeName in area) {
-    alert("this place has already been recorded")
-  }
-
-
   if (skirtingNeeded === "yes") {
-    skirtingQty = Math.ceil(((length + breadth) * 2) / 2.9);
-
-    if (doors > 0) {
-      skirtingQty = Math.ceil(skirtingQty - (doors * 0.9));
-    }
-
-    // Prevent negative values
-    skirtingQty = Math.max(skirtingQty, 0);
-
+    // Standard calculation: Perimeter / length of skirting board (approx 2.9m)
+    let perimeter = (length + breadth) * 2;
+    // Subtract door width (approx 0.9m per door)
+    let perimeterAdjusted = perimeter - (doors * 0.9);
+    
+    skirtingQty = Math.ceil(Math.max(perimeterAdjusted, 0) / 2.9);
+    
     fillerQty = Math.ceil(skirtingQty / 2);
     skirtingGumQty = Math.ceil(fillerQty / 3);
   }
 
-  // Floor gum (VINYL ONLY)
-  const floorGum =
-    floorType === "vinyl"
-      ? Math.ceil(floorArea / 20)
-      : 0;
+  // Floor gum (VINYL ONLY) - 1 bucket per 20sqm
+  const floorGum = (floorType === "vinyl") ? Math.ceil(floorArea / 20) : 0;
 
-  // Door end profiles
-  const doorEndProfiles = Math.ceil((doors * 0.9) / 2.4);
+  // Door end profiles - 1 profile covers approx 2.4m, door is 0.9m
+  const doorEndProfiles = (doors > 0) ? Math.ceil((doors * 0.9) / 2.4) : 0;
 
   /* ---------------- PRICING ---------------- */
 
@@ -91,73 +87,108 @@ function addArea() {
     skirtingGumSubtotal +
     doorProfileSubtotal;
 
-  /* ---------------- GRAND TOTAL ---------------- */
+  /* ---------------- UPDATE STATE ---------------- */
 
   grandTotal += areaTotal;
-  document.getElementById("grandTotal").innerText =
-    `Grand Total: ₦${grandTotal.toLocaleString()}`;
+  areaNames.push(placeName.toLowerCase());
+  
+  updateGrandTotal();
 
   /* ---------------- DISPLAY CARD ---------------- */
 
   const card = document.createElement("div");
   card.className = "area-card";
+  card.id = `card-${placeName.replace(/\s+/g, '-')}`;
 
-  card.innerHTML = `
-    <h3>${placeName}</h3>
+  // Helper to format currency
+  const fmt = (n) => "₦" + n.toLocaleString();
 
-    <p>
-      ${floorArea.toFixed(2)} sqm (${floorType.toUpperCase()})
-      × ₦${floorUnitPrice.toLocaleString()}
-      = <em>₦${floorSubtotal.toLocaleString()}</em>
-    </p>
+  // Construct HTML
+  let html = `
+    <div class="area-header">
+      <h3><i class="ph ph-house-line"></i> ${placeName}</h3>
+      <button onclick="removeArea('${placeName}', ${areaTotal})" class="remove-btn" style="background:none; border:none; color: #ef4444; cursor:pointer;" title="Remove Item">
+        <i class="ph ph-trash" style="font-size: 18px;"></i>
+      </button>
+    </div>
 
-    ${skirtingNeeded === "yes"
-      ? `
-        <p>
-          Skirting: ${skirtingQty}
-          × ₦${prices.skirting.toLocaleString()}
-          = <em>₦${skirtingSubtotal.toLocaleString()}</em>
-        </p>
-
-        <p>
-          Filler: ${fillerQty}
-          × ₦${prices.filler.toLocaleString()}
-          = <em>₦${fillerSubtotal.toLocaleString()}</em>
-        </p>
-
-        <p>
-          Skirting Gum: ${skirtingGumQty}
-          × ₦${prices.skirtingGum.toLocaleString()}
-          = <em>₦${skirtingGumSubtotal.toLocaleString()}</em>
-        </p>
-        `
-      : ""
-    }
-
-    ${floorType === "vinyl"
-      ? `
-        <p>
-          Floor Gum: ${floorGum}
-          × ₦${prices.floorGum.toLocaleString()}
-          = <em>₦${floorGumSubtotal.toLocaleString()}</em>
-        </p>
-        `
-      : ""
-    }
-
-    ${doorEndProfiles != 0 ? 
-      `
-    <p>
-      Door Profiles: ${doorEndProfiles}
-      × ₦${prices.doorProfile.toLocaleString()}
-      = <em>₦${doorProfileSubtotal.toLocaleString()}</em>
-    </p>`
-    : ""
-    }
-
-    <hr>
-    <strong>Total (${placeName}): ₦${areaTotal.toLocaleString()}</strong>
+    <div class="area-details">
+      <div class="detail-row">
+        <span>Flooring (${floorType.toUpperCase()}) - ${floorArea.toFixed(2)} sqm</span>
+        <em>${fmt(floorSubtotal)}</em>
+      </div>
   `;
 
+  if (skirtingNeeded === "yes") {
+    html += `
+      <div class="detail-row">
+        <span>Skirting (${skirtingQty} pcs)</span>
+        <em>${fmt(skirtingSubtotal)}</em>
+      </div>
+      <div class="detail-row">
+        <span>Filler (${fillerQty} bags)</span>
+        <em>${fmt(fillerSubtotal)}</em>
+      </div>
+      <div class="detail-row">
+        <span>Skirting Gum (${skirtingGumQty} pcs)</span>
+        <em>${fmt(skirtingGumSubtotal)}</em>
+      </div>
+    `;
+  }
+
+  if (floorType === "vinyl" && floorGum > 0) {
+    html += `
+      <div class="detail-row">
+        <span>Floor Gum (${floorGum} pcs)</span>
+        <em>${fmt(floorGumSubtotal)}</em>
+      </div>
+    `;
+  }
+
+  if (doorEndProfiles > 0) {
+    html += `
+      <div class="detail-row">
+        <span>Door Profiles (${doorEndProfiles} pcs)</span>
+        <em>${fmt(doorProfileSubtotal)}</em>
+      </div>
+    `;
+  }
+
+  html += `
+    </div>
+    <div class="area-total">
+      <span>Total</span>
+      <span>${fmt(areaTotal)}</span>
+    </div>
+  `;
+
+  card.innerHTML = html;
   document.getElementById("areasContainer").appendChild(card);
+
+  // Clear inputs for next entry
+  document.getElementById("placeName").value = "";
+  document.getElementById("length").value = "";
+  document.getElementById("breadth").value = "";
+  document.getElementById("doors").value = "";
+  document.getElementById("placeName").focus();
+}
+
+function updateGrandTotal() {
+  document.getElementById("grandTotal").innerHTML = 
+    `<span class="total-label">Grand Total</span> ₦${grandTotal.toLocaleString()}`;
+}
+
+function removeArea(name, amount) {
+  if(!confirm("Remove " + name + " from quotation?")) return;
+
+  // Remove from DOM
+  const cardId = `card-${name.replace(/\s+/g, '-')}`;
+  const card = document.getElementById(cardId);
+  if(card) card.remove();
+
+  // Update state
+  grandTotal -= amount;
+  areaNames = areaNames.filter(n => n !== name.toLowerCase());
+  
+  updateGrandTotal();
 }
