@@ -10,6 +10,12 @@ export function setTitle(userName) {
   el.innerText = "Quotation for " + userName;
 }
 
+export function setTitleText(title) {
+  if (!title) return;
+  const el = document.getElementById("quotationTitle");
+  el.innerText = title;
+}
+
 export function updateGrandTotal(total) {
   const el = document.getElementById("grandTotal");
   el.innerHTML = `<span class="total-label">Grand Total</span> ₦${total.toLocaleString()}`;

@@ -1,7 +1,21 @@
 import { computeFlooring, getFlooringPrices } from "./js/calc.js";
 import { buildFlooringItem } from "./js/model.js";
-import { addItem, getGrandTotal, hasPlaceName, removeItem } from "./js/state.js";
-import { buildAreaCard, setTitle, updateGrandTotal } from "./js/ui.js";
+import {
+  addItem,
+  getGrandTotal,
+  getItems,
+  hasPlaceName,
+  removeItem,
+  setItems,
+} from "./js/state.js";
+import {
+  deleteQuotation,
+  getQuotation,
+  loadSavedQuotations,
+  renameQuotation,
+  saveQuotation,
+} from "./js/storage.js";
+import { buildAreaCard, setTitle, setTitleText, updateGrandTotal } from "./js/ui.js";
 
 const formEls = {
   userName: document.getElementById("userName"),
@@ -19,6 +33,8 @@ const formEls = {
 const areasContainer = document.getElementById("areasContainer");
 const addAreaBtn = document.getElementById("addAreaBtn");
 const printBtn = document.getElementById("printBtn");
+const saveQuoteBtn = document.getElementById("saveQuoteBtn");
+const historyList = document.getElementById("historyList");
 
 function readInputs() {
   return {
@@ -100,8 +116,119 @@ function removeArea(card) {
   updateGrandTotal(getGrandTotal());
 }
 
+function getQuotationTitle() {
+  const inputTitle = formEls.userName.value.trim();
+  if (inputTitle) return "Quotation for " + inputTitle;
+  const headerTitle = document.getElementById("quotationTitle").innerText.trim();
+  return headerTitle || "Quotation";
+}
+
+function buildQuotationPayload() {
+  return {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+    title: getQuotationTitle(),
+    dateISO: new Date().toISOString(),
+    items: JSON.parse(JSON.stringify(getItems())),
+    total: getGrandTotal(),
+  };
+}
+
+function renderAllItems(items) {
+  areasContainer.innerHTML = "";
+  items.forEach((item) => {
+    const card = buildAreaCard(item);
+    areasContainer.appendChild(card);
+  });
+}
+
+function renderHistory(list) {
+  historyList.innerHTML = "";
+  if (list.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "history-item";
+    empty.innerHTML = `<div><p class="history-item-title">No saved quotations</p><p class="history-item-meta">Save to keep a copy on this device.</p></div>`;
+    historyList.appendChild(empty);
+    return;
+  }
+
+  list.forEach((item) => {
+    const li = document.createElement("li");
+    li.className = "history-item";
+    li.dataset.id = item.id;
+
+    const date = new Date(item.dateISO);
+    const meta = `${date.toLocaleDateString()} • ${item.items.length} items • ₦${item.total.toLocaleString()}`;
+
+    li.innerHTML = `
+      <div>
+        <p class="history-item-title">${item.title}</p>
+        <p class="history-item-meta">${meta}</p>
+      </div>
+      <div class="history-actions">
+        <button class="history-btn" data-action="load">Load</button>
+        <button class="history-btn" data-action="rename">Rename</button>
+        <button class="history-btn" data-action="delete">Delete</button>
+      </div>
+    `;
+
+    historyList.appendChild(li);
+  });
+}
+
+function handleSaveQuotation() {
+  if (getGrandTotal() <= 0) {
+    alert("Add at least one item before saving.");
+    return;
+  }
+
+  const payload = buildQuotationPayload();
+  const list = saveQuotation(payload);
+  renderHistory(list);
+}
+
+function loadQuotation(id) {
+  const quote = getQuotation(id);
+  if (!quote) return;
+
+  setItems(quote.items);
+  renderAllItems(quote.items);
+  updateGrandTotal(getGrandTotal());
+  setTitleText(quote.title);
+}
+
+function handleHistoryAction(event) {
+  const btn = event.target.closest("[data-action]");
+  if (!btn) return;
+  const item = btn.closest(".history-item");
+  if (!item) return;
+  const id = item.dataset.id;
+  const action = btn.dataset.action;
+
+  if (action === "load") {
+    loadQuotation(id);
+    return;
+  }
+
+  if (action === "delete") {
+    if (!confirm("Delete this saved quotation?")) return;
+    const list = deleteQuotation(id);
+    renderHistory(list);
+    return;
+  }
+
+  if (action === "rename") {
+    const next = prompt("New title for this quotation?");
+    if (!next) return;
+    const trimmed = next.trim();
+    if (!trimmed) return;
+    const list = renameQuotation(id, trimmed);
+    renderHistory(list);
+  }
+}
+
 addAreaBtn.addEventListener("click", addArea);
 printBtn.addEventListener("click", () => window.print());
+saveQuoteBtn.addEventListener("click", handleSaveQuotation);
 
 areasContainer.addEventListener("click", (event) => {
   const btn = event.target.closest("[data-action='remove']");
@@ -111,4 +238,11 @@ areasContainer.addEventListener("click", (event) => {
   removeArea(card);
 });
 
-updateGrandTotal(getGrandTotal());
+historyList.addEventListener("click", handleHistoryAction);
+
+function init() {
+  updateGrandTotal(getGrandTotal());
+  renderHistory(loadSavedQuotations());
+}
+
+init();

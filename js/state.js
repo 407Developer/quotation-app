@@ -9,8 +9,18 @@ export function addItem(item) {
   return id;
 }
 
+export function setItems(items) {
+  quotationState.items = items;
+  quotationState.nextId =
+    items.reduce((maxId, item) => Math.max(maxId, item.id || 0), 0) + 1;
+}
+
 export function removeItem(id) {
   quotationState.items = quotationState.items.filter((item) => item.id !== id);
+}
+
+export function getItems() {
+  return quotationState.items;
 }
 
 export function hasPlaceName(name) {

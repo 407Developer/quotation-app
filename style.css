@@ -191,6 +191,88 @@ input::placeholder {
   background: #f5f3ff;
 }
 
+/* History */
+.history-section {
+  margin-top: 24px;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.history-header h2 {
+  margin: 0 0 6px 0;
+  font-size: 20px;
+}
+
+.history-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.history-save-btn {
+  width: auto;
+  padding: 12px 18px;
+  font-size: 14px;
+  margin-top: 0;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.history-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: #f8fafc;
+}
+
+.history-item-title {
+  font-weight: 600;
+  margin: 0 0 4px 0;
+}
+
+.history-item-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.history-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.history-btn {
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--text-main);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.history-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
 /* Area Cards */
 #areasContainer {
   display: flex;
@@ -333,6 +415,15 @@ input::placeholder {
   .app-header h1 {
     font-size: 28px;
   }
+
+  .history-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .history-save-btn {
+    width: 100%;
+  }
 }
 
 /* Print Styles */
@@ -348,7 +439,8 @@ input::placeholder {
 
   .form-section,
   .print-btn,
-  .logo-icon {
+  .logo-icon,
+  .history-section {
     display: none !important;
   }
 
