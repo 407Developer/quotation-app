@@ -7,6 +7,7 @@ import {
   hasPlaceName,
   removeItem,
   setItems,
+  updateItem,
 } from "./js/state.js";
 import {
   deleteQuotation,
@@ -41,6 +42,7 @@ const historyOverlay = document.getElementById("historyOverlay");
 const historyHandle = document.getElementById("historyHandle");
 
 let sheetDrag = null;
+let editingId = null;
 
 function readInputs() {
   return {
@@ -65,13 +67,13 @@ function clearInputs() {
   formEls.placeName.focus();
 }
 
-function validateInputs({ placeName, length, breadth }) {
+function validateInputs({ placeName, length, breadth }, ignoreId = null) {
   if (!placeName || Number.isNaN(length) || Number.isNaN(breadth)) {
     alert("Please fill in place name, length, and breadth correctly.");
     return false;
   }
 
-  if (hasPlaceName(placeName)) {
+  if (hasPlaceName(placeName, ignoreId)) {
     alert("This place has already been added to the quotation.");
     return false;
   }
@@ -81,7 +83,7 @@ function validateInputs({ placeName, length, breadth }) {
 
 function addArea() {
   const inputs = readInputs();
-  if (!validateInputs(inputs)) return;
+  if (!validateInputs(inputs, editingId)) return;
 
   setTitle(inputs.userName);
 
@@ -102,14 +104,21 @@ function addArea() {
   });
 
   const item = buildFlooringItem(inputs, calculated, prices);
-  item.id = addItem(item);
+  let id = editingId;
+  if (editingId) {
+    updateItem(editingId, item);
+  } else {
+    id = addItem(item);
+  }
+  item.id = id;
 
   updateGrandTotal(getGrandTotal());
 
   const card = buildAreaCard(item);
-  areasContainer.appendChild(card);
+  upsertCard(card);
 
   clearInputs();
+  resetEditing();
 }
 
 function removeArea(card) {
@@ -120,6 +129,44 @@ function removeArea(card) {
   card.remove();
   removeItem(id);
   updateGrandTotal(getGrandTotal());
+
+  if (editingId === id) {
+    resetEditing();
+  }
+}
+
+function upsertCard(card) {
+  const existing = areasContainer.querySelector(
+    `.area-card[data-id='${card.dataset.id}']`
+  );
+  if (existing) {
+    existing.replaceWith(card);
+    return;
+  }
+  areasContainer.appendChild(card);
+}
+
+function resetEditing() {
+  editingId = null;
+  addAreaBtn.innerHTML =
+    '<i class="ph ph-plus-circle" style="font-size: 20px; color: white;"></i> Add Area';
+}
+
+function startEditing(item) {
+  editingId = item.id;
+  formEls.userName.value = item.inputs.userName || "";
+  formEls.placeName.value = item.placeName;
+  formEls.length.value = item.inputs.length;
+  formEls.breadth.value = item.inputs.breadth;
+  formEls.doors.value = item.inputs.doors || 0;
+  formEls.skirtingNeeded.value = item.inputs.skirtingNeeded;
+  formEls.floorType.value = item.inputs.floorType;
+  formEls.price.value = item.inputs.price || "";
+  formEls.gumPrice.value = item.inputs.gumPrice || "";
+  formEls.doorProfilePrice.value = item.inputs.doorProfilePrice || "";
+  addAreaBtn.innerHTML =
+    '<i class="ph ph-check-circle" style="font-size: 20px; color: white;"></i> Update Area';
+  formEls.placeName.focus();
 }
 
 function getQuotationTitle() {
@@ -200,6 +247,8 @@ function loadQuotation(id) {
   renderAllItems(quote.items);
   updateGrandTotal(getGrandTotal());
   setTitleText(quote.title);
+  clearInputs();
+  resetEditing();
 }
 
 function handleHistoryAction(event) {
@@ -311,11 +360,21 @@ historySheet.addEventListener("pointerup", handleSheetPointerUp);
 historySheet.addEventListener("pointercancel", handleSheetPointerUp);
 
 areasContainer.addEventListener("click", (event) => {
-  const btn = event.target.closest("[data-action='remove']");
+  const btn = event.target.closest("[data-action]");
   if (!btn) return;
   const card = btn.closest(".area-card");
   if (!card) return;
-  removeArea(card);
+  const action = btn.dataset.action;
+  if (action === "remove") {
+    removeArea(card);
+    return;
+  }
+  if (action === "edit") {
+    const id = Number(card.dataset.id);
+    const item = getItems().find((entry) => entry.id === id);
+    if (!item) return;
+    startEditing(item);
+  }
 });
 
 historyList.addEventListener("click", handleHistoryAction);
@@ -324,6 +383,7 @@ function init() {
   updateGrandTotal(getGrandTotal());
   renderHistory(loadSavedQuotations());
   closeHistorySheet();
+  resetEditing();
 }
 
 init();

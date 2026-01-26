@@ -385,6 +385,11 @@ input::placeholder {
   gap: 8px;
 }
 
+.card-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
 .area-details {
   display: grid;
   gap: 12px;

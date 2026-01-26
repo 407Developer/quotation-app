@@ -9,6 +9,12 @@ export function addItem(item) {
   return id;
 }
 
+export function updateItem(id, nextItem) {
+  quotationState.items = quotationState.items.map((item) =>
+    item.id === id ? { ...nextItem, id } : item
+  );
+}
+
 export function setItems(items) {
   quotationState.items = items;
   quotationState.nextId =
@@ -23,10 +29,12 @@ export function getItems() {
   return quotationState.items;
 }
 
-export function hasPlaceName(name) {
+export function hasPlaceName(name, ignoreId = null) {
   const nameLower = name.toLowerCase();
   return quotationState.items.some(
-    (item) => item.placeName?.toLowerCase() === nameLower
+    (item) =>
+      item.placeName?.toLowerCase() === nameLower &&
+      (ignoreId === null || item.id !== ignoreId)
   );
 }
 
