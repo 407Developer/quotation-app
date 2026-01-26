@@ -116,6 +116,13 @@ body.sheet-open {
   gap: 20px;
 }
 
+.form-section > .guided-only:not(.row),
+.form-section > .custom-only:not(.row) {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 /* Mode Toggle */
 .mode-toggle {
   display: flex;
