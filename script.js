@@ -653,6 +653,7 @@ function getSheetHeight() {
 function openHistorySheet() {
   historySheet.classList.add("is-open");
   historyOverlay.classList.add("is-open");
+  document.body.classList.add("sheet-open");
   historySheet.setAttribute("aria-hidden", "false");
   historyOverlay.setAttribute("aria-hidden", "false");
   setSheetTranslate(0);
@@ -661,6 +662,7 @@ function openHistorySheet() {
 function closeHistorySheet() {
   historySheet.classList.remove("is-open");
   historyOverlay.classList.remove("is-open");
+  document.body.classList.remove("sheet-open");
   historySheet.setAttribute("aria-hidden", "true");
   historyOverlay.setAttribute("aria-hidden", "true");
   setSheetTranslate(getSheetHeight());
@@ -677,17 +679,20 @@ function toggleHistorySheet() {
 function handleSheetPointerDown(event) {
   const target = event.target.closest("#historyHandle, .history-header");
   if (!target) return;
+  if (event.cancelable) event.preventDefault();
   const startY = event.clientY;
   sheetDrag = {
     startY,
     startTranslate: historySheet.classList.contains("is-open") ? 0 : getSheetHeight(),
   };
   historySheet.style.transition = "none";
+  historySheet.classList.add("is-dragging");
   historySheet.setPointerCapture(event.pointerId);
 }
 
 function handleSheetPointerMove(event) {
   if (!sheetDrag) return;
+  if (event.cancelable) event.preventDefault();
   const delta = event.clientY - sheetDrag.startY;
   const height = getSheetHeight();
   const next = Math.min(Math.max(sheetDrag.startTranslate + delta, 0), height);
@@ -696,12 +701,13 @@ function handleSheetPointerMove(event) {
 
 function handleSheetPointerUp(event) {
   if (!sheetDrag) return;
+  if (event.cancelable) event.preventDefault();
   historySheet.releasePointerCapture(event.pointerId);
   historySheet.style.transition = "";
+  historySheet.classList.remove("is-dragging");
   const height = getSheetHeight();
-  const current = parseFloat(
-    getComputedStyle(historySheet).getPropertyValue("--sheet-translate")
-  );
+  const raw = getComputedStyle(historySheet).getPropertyValue("--sheet-translate");
+  const current = Number.isNaN(parseFloat(raw)) ? 0 : parseFloat(raw);
   sheetDrag = null;
   if (current > height * 0.35) {
     closeHistorySheet();
