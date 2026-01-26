@@ -1,11 +1,14 @@
+import { flooringRules } from "./rules.js";
+
 export function getFlooringPrices({ floorType, floorPrice, gumPrice, doorProfilePrice }) {
+  const defaults = flooringRules.defaults;
   return {
-    vinyl: floorPrice ? floorPrice : 9000,
-    spc: 17000,
-    skirting: 10000,
-    floorGum: gumPrice ? gumPrice : 4000,
-    filler: 4000,
-    skirtingGum: 4000,
+    vinyl: floorPrice ? floorPrice : defaults.vinylPrice,
+    spc: defaults.spcPrice,
+    skirting: defaults.skirtingPrice,
+    floorGum: gumPrice ? gumPrice : defaults.floorGumPrice,
+    filler: defaults.fillerPrice,
+    skirtingGum: defaults.skirtingGumPrice,
     doorProfile: doorProfilePrice,
     floorType,
   };
@@ -20,14 +23,25 @@ export function computeFlooring({ length, breadth, doors, skirtingNeeded, floorT
 
   if (skirtingNeeded === "yes") {
     const perimeter = (length + breadth) * 2;
-    const perimeterAdjusted = perimeter - doors * 0.9;
-    skirtingQty = Math.ceil(Math.max(perimeterAdjusted, 0) / 2.9);
+    const perimeterAdjusted = perimeter - doors * flooringRules.measures.doorWidth;
+    skirtingQty = Math.ceil(
+      Math.max(perimeterAdjusted, 0) / flooringRules.measures.skirtingBoardLength
+    );
     fillerQty = Math.ceil(skirtingQty / 2);
     skirtingGumQty = Math.ceil(fillerQty / 3);
   }
 
-  const floorGum = floorType === "vinyl" ? Math.ceil(floorArea / 20) : 0;
-  const doorEndProfiles = doors > 0 ? Math.ceil((doors * 0.9) / 2.4) : 0;
+  const floorGum =
+    floorType === "vinyl"
+      ? Math.ceil(floorArea / flooringRules.measures.floorGumCoverage)
+      : 0;
+  const doorEndProfiles =
+    doors > 0
+      ? Math.ceil(
+          (doors * flooringRules.measures.doorWidth) /
+            flooringRules.measures.doorProfileCoverage
+        )
+      : 0;
 
   const floorUnitPrice = prices[floorType] || 0;
   const floorSubtotal = floorArea * floorUnitPrice;
