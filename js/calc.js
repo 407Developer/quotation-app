@@ -1,5 +1,17 @@
 import { flooringRules, paintRules, tileRules, wallpaperRules } from "./rules.js";
 
+export function applyOverrides(lines, overrides = {}) {
+  const nextLines = lines.map((line) => {
+    const override = overrides[line.key];
+    if (typeof override === "number" && !Number.isNaN(override)) {
+      return { ...line, subtotal: override };
+    }
+    return line;
+  });
+  const areaTotal = nextLines.reduce((sum, line) => sum + (line.subtotal || 0), 0);
+  return { lines: nextLines, areaTotal };
+}
+
 export function getFlooringPrices({ floorType, floorPrice, gumPrice, doorProfilePrice }) {
   const defaults = flooringRules.defaults;
   return {
@@ -14,7 +26,15 @@ export function getFlooringPrices({ floorType, floorPrice, gumPrice, doorProfile
   };
 }
 
-export function computeFlooring({ length, breadth, doors, skirtingNeeded, floorType, prices }) {
+export function computeFlooring({
+  length,
+  breadth,
+  doors,
+  skirtingNeeded,
+  floorType,
+  prices,
+  overrides,
+}) {
   const floorArea = length * breadth;
 
   let skirtingQty = 0;
@@ -59,6 +79,60 @@ export function computeFlooring({ length, breadth, doors, skirtingNeeded, floorT
     skirtingGumSubtotal +
     doorProfileSubtotal;
 
+  const applied = applyOverrides(
+    [
+      {
+        key: "floor",
+        label: `Flooring (${floorType.toUpperCase()})`,
+        qty: floorArea,
+        unit: "sqm",
+        subtotal: floorSubtotal,
+      },
+      ...(skirtingNeeded === "yes"
+        ? [
+            {
+              key: "skirting",
+              label: "Skirting",
+              qty: skirtingQty,
+              unit: "pcs",
+              subtotal: skirtingSubtotal,
+            },
+            { key: "filler", label: "Filler", qty: fillerQty, unit: "bags", subtotal: fillerSubtotal },
+            {
+              key: "skirtingGum",
+              label: "Skirting Gum",
+              qty: skirtingGumQty,
+              unit: "pcs",
+              subtotal: skirtingGumSubtotal,
+            },
+          ]
+        : []),
+      ...(floorType === "vinyl" && floorGum > 0
+        ? [
+            {
+              key: "floorGum",
+              label: "Floor Gum",
+              qty: floorGum,
+              unit: "pcs",
+              subtotal: floorGumSubtotal,
+            },
+          ]
+        : []),
+      ...(doorEndProfiles > 0
+        ? [
+            {
+              key: "doorProfiles",
+              label: "Door Profiles",
+              qty: doorEndProfiles,
+              unit: "pcs",
+              subtotal: doorProfileSubtotal,
+            },
+          ]
+        : []),
+    ],
+    overrides
+  );
+
   return {
     area: floorArea,
     floorArea,
@@ -73,40 +147,8 @@ export function computeFlooring({ length, breadth, doors, skirtingNeeded, floorT
     fillerSubtotal,
     skirtingGumSubtotal,
     doorProfileSubtotal,
-    areaTotal,
-    lines: [
-      {
-        label: `Flooring (${floorType.toUpperCase()})`,
-        qty: floorArea,
-        unit: "sqm",
-        subtotal: floorSubtotal,
-      },
-      ...(skirtingNeeded === "yes"
-        ? [
-            { label: "Skirting", qty: skirtingQty, unit: "pcs", subtotal: skirtingSubtotal },
-            { label: "Filler", qty: fillerQty, unit: "bags", subtotal: fillerSubtotal },
-            {
-              label: "Skirting Gum",
-              qty: skirtingGumQty,
-              unit: "pcs",
-              subtotal: skirtingGumSubtotal,
-            },
-          ]
-        : []),
-      ...(floorType === "vinyl" && floorGum > 0
-        ? [{ label: "Floor Gum", qty: floorGum, unit: "pcs", subtotal: floorGumSubtotal }]
-        : []),
-      ...(doorEndProfiles > 0
-        ? [
-            {
-              label: "Door Profiles",
-              qty: doorEndProfiles,
-              unit: "pcs",
-              subtotal: doorProfileSubtotal,
-            },
-          ]
-        : []),
-    ],
+    areaTotal: applied.areaTotal,
+    lines: applied.lines,
   };
 }
 
@@ -120,7 +162,13 @@ export function getTilePrices({ tilePrice }) {
   };
 }
 
-export function computeTiles({ area, tileSizeCm, prices }) {
+export function getTileArea(tileSizeCm) {
+  const size = tileSizeCm || tileRules.measures.tileSizeCm;
+  const tileSizeM = size / 100;
+  return tileSizeM * tileSizeM;
+}
+
+export function computeTiles({ area, tileSizeCm, prices, overrides }) {
   const tileSizeM = (tileSizeCm || tileRules.measures.tileSizeCm) / 100;
   const tileArea = tileSizeM * tileSizeM;
   const tileCount = Math.ceil((area / tileArea) * (1 + tileRules.measures.wasteRate));
@@ -135,6 +183,27 @@ export function computeTiles({ area, tileSizeCm, prices }) {
   const sandSubtotal = sandQty * prices.sand;
 
   const areaTotal = tileSubtotal + tileGumSubtotal + cementSubtotal + sandSubtotal;
+  const applied = applyOverrides(
+    [
+      {
+        key: "tiles",
+        label: `Tiles (${tileCount} pcs)`,
+        qty: area,
+        unit: "sqm",
+        subtotal: tileSubtotal,
+      },
+      {
+        key: "tileGum",
+        label: "Tile Gum",
+        qty: tileGumQty,
+        unit: "bags",
+        subtotal: tileGumSubtotal,
+      },
+      { key: "cement", label: "Cement", qty: cementQty, unit: "bags", subtotal: cementSubtotal },
+      { key: "sand", label: "Sand", qty: sandQty, unit: "tons", subtotal: sandSubtotal },
+    ],
+    overrides
+  );
 
   return {
     area,
@@ -146,18 +215,8 @@ export function computeTiles({ area, tileSizeCm, prices }) {
     tileGumSubtotal,
     cementSubtotal,
     sandSubtotal,
-    areaTotal,
-    lines: [
-      {
-        label: `Tiles (${tileCount} pcs)`,
-        qty: area,
-        unit: "sqm",
-        subtotal: tileSubtotal,
-      },
-      { label: "Tile Gum", qty: tileGumQty, unit: "bags", subtotal: tileGumSubtotal },
-      { label: "Cement", qty: cementQty, unit: "bags", subtotal: cementSubtotal },
-      { label: "Sand", qty: sandQty, unit: "tons", subtotal: sandSubtotal },
-    ],
+    areaTotal: applied.areaTotal,
+    lines: applied.lines,
     meta: {
       tileSizeCm: tileSizeCm || tileRules.measures.tileSizeCm,
       tileCount,
@@ -173,7 +232,7 @@ export function getPaintPrices({ paintPrice }) {
   };
 }
 
-export function computePaint({ area, coats, prices }) {
+export function computePaint({ area, coats, prices, overrides }) {
   const appliedCoats = coats || paintRules.measures.defaultCoats;
   const primerQty = Math.ceil(area / paintRules.measures.primerCoverage);
   const paintQty = Math.ceil((area * appliedCoats) / paintRules.measures.paintCoverage);
@@ -181,6 +240,13 @@ export function computePaint({ area, coats, prices }) {
   const primerSubtotal = primerQty * prices.primer;
   const paintSubtotal = area * prices.paint;
   const areaTotal = paintSubtotal + primerSubtotal;
+  const applied = applyOverrides(
+    [
+      { key: "paint", label: "Painting", qty: area, unit: "sqm", subtotal: paintSubtotal },
+      { key: "primer", label: "Primer", qty: primerQty, unit: "cans", subtotal: primerSubtotal },
+    ],
+    overrides
+  );
 
   return {
     area,
@@ -189,11 +255,8 @@ export function computePaint({ area, coats, prices }) {
     paintQty,
     primerSubtotal,
     paintSubtotal,
-    areaTotal,
-    lines: [
-      { label: "Painting", qty: area, unit: "sqm", subtotal: paintSubtotal },
-      { label: "Primer", qty: primerQty, unit: "cans", subtotal: primerSubtotal },
-    ],
+    areaTotal: applied.areaTotal,
+    lines: applied.lines,
   };
 }
 
@@ -205,12 +268,29 @@ export function getWallpaperPrices({ rollPrice, adhesivePrice }) {
   };
 }
 
-export function computeWallpaper({ area, prices }) {
+export function getWallpaperRollCoverage() {
+  return wallpaperRules.measures.rollCoverage;
+}
+
+export function computeWallpaper({ area, prices, overrides }) {
   const rolls = Math.ceil((area / wallpaperRules.measures.rollCoverage) * (1 + wallpaperRules.measures.wasteRate));
   const adhesiveQty = Math.ceil(area / wallpaperRules.measures.adhesiveCoverage);
   const rollSubtotal = rolls * prices.roll;
   const adhesiveSubtotal = adhesiveQty * prices.adhesive;
   const areaTotal = rollSubtotal + adhesiveSubtotal;
+  const applied = applyOverrides(
+    [
+      {
+        key: "rolls",
+        label: "Wallpaper Rolls",
+        qty: rolls,
+        unit: "rolls",
+        subtotal: rollSubtotal,
+      },
+      { key: "adhesive", label: "Adhesive", qty: adhesiveQty, unit: "cans", subtotal: adhesiveSubtotal },
+    ],
+    overrides
+  );
 
   return {
     area,
@@ -218,10 +298,7 @@ export function computeWallpaper({ area, prices }) {
     adhesiveQty,
     rollSubtotal,
     adhesiveSubtotal,
-    areaTotal,
-    lines: [
-      { label: "Wallpaper Rolls", qty: rolls, unit: "rolls", subtotal: rollSubtotal },
-      { label: "Adhesive", qty: adhesiveQty, unit: "cans", subtotal: adhesiveSubtotal },
-    ],
+    areaTotal: applied.areaTotal,
+    lines: applied.lines,
   };
 }

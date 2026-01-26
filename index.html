@@ -83,11 +83,23 @@
             <select id="inputStyle">
               <option value="dimensions">Length × Breadth</option>
               <option value="area">Direct Area</option>
+              <option value="quantity">Quantity</option>
             </select>
           </div>
           <div class="input-group" id="areaGroup">
             <label>Area (sqm)</label>
             <input type="number" id="areaInput" step="0.01" />
+          </div>
+        </div>
+
+        <div class="row" id="quantityRow">
+          <div class="input-group">
+            <label>Quantity</label>
+            <input type="number" id="guidedQty" step="0.01" />
+          </div>
+          <div class="input-group">
+            <label>Unit</label>
+            <input type="text" id="guidedUnit" placeholder="pcs, rolls" />
           </div>
         </div>
       </div>

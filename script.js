@@ -3,9 +3,11 @@ import {
   computePaint,
   computeTiles,
   computeWallpaper,
+  getTileArea,
   getFlooringPrices,
   getPaintPrices,
   getTilePrices,
+  getWallpaperRollCoverage,
   getWallpaperPrices,
 } from "./js/calc.js";
 import { buildCustomItem, buildFlooringItem, buildGuidedItem } from "./js/model.js";
@@ -35,6 +37,8 @@ const formEls = {
   areaInput: document.getElementById("areaInput"),
   inputStyle: document.getElementById("inputStyle"),
   guidedCategory: document.getElementById("guidedCategory"),
+  guidedQty: document.getElementById("guidedQty"),
+  guidedUnit: document.getElementById("guidedUnit"),
   doors: document.getElementById("doors"),
   skirtingNeeded: document.getElementById("skirtingNeeded"),
   floorType: document.getElementById("floorType"),
@@ -66,6 +70,7 @@ const historyHandle = document.getElementById("historyHandle");
 const modeToggle = document.getElementById("modeToggle");
 const dimensionsRow = document.getElementById("dimensionsRow");
 const areaGroup = document.getElementById("areaGroup");
+const quantityRow = document.getElementById("quantityRow");
 const flooringConfig = document.getElementById("flooringConfig");
 const flooringExtras = document.getElementById("flooringExtras");
 const tilesConfig = document.getElementById("tilesConfig");
@@ -99,6 +104,7 @@ function setInputStyle(style) {
   formEls.inputStyle.value = style;
   dimensionsRow.classList.toggle("is-hidden", style !== "dimensions");
   areaGroup.classList.toggle("is-hidden", style !== "area");
+  quantityRow.classList.toggle("is-hidden", style !== "quantity");
 }
 
 function readInputs() {
@@ -110,6 +116,8 @@ function readInputs() {
     areaInput: parseFloat(formEls.areaInput.value),
     inputStyle: formEls.inputStyle.value,
     guidedCategory: formEls.guidedCategory.value,
+    guidedQty: parseFloat(formEls.guidedQty.value),
+    guidedUnit: formEls.guidedUnit.value.trim(),
     doors: parseInt(formEls.doors.value, 10) || 0,
     skirtingNeeded: formEls.skirtingNeeded.value,
     floorType: formEls.floorType.value,
@@ -136,6 +144,8 @@ function clearInputs() {
   formEls.breadth.value = "";
   formEls.areaInput.value = "";
   formEls.doors.value = "";
+  formEls.guidedQty.value = "";
+  formEls.guidedUnit.value = "";
   formEls.customName.value = "";
   formEls.customQty.value = "";
   formEls.customUnit.value = "";
@@ -169,6 +179,17 @@ function validateGuidedInputs(inputs, ignoreId = null) {
   if (inputs.inputStyle === "area") {
     if (Number.isNaN(inputs.areaInput) || inputs.areaInput <= 0) {
       alert("Please fill in area correctly.");
+      return false;
+    }
+  }
+
+  if (inputs.inputStyle === "quantity") {
+    if (Number.isNaN(inputs.guidedQty) || inputs.guidedQty <= 0) {
+      alert("Please fill in quantity correctly.");
+      return false;
+    }
+    if (!inputs.guidedUnit) {
+      alert("Please fill in unit.");
       return false;
     }
   }
@@ -207,6 +228,22 @@ function computeArea(inputs) {
     const side = Math.sqrt(area || 0);
     return { area, length: side, breadth: side };
   }
+  if (inputs.inputStyle === "quantity") {
+    const unit = inputs.guidedUnit.toLowerCase();
+    if (unit === "sqm" || unit === "m2") {
+      return { area: inputs.guidedQty, length: null, breadth: null };
+    }
+    if (inputs.guidedCategory === "tiles") {
+      const tileArea = getTileArea(inputs.tileSize);
+      const area = inputs.guidedQty * tileArea;
+      return { area, length: null, breadth: null };
+    }
+    if (inputs.guidedCategory === "wallpaper") {
+      const area = inputs.guidedQty * getWallpaperRollCoverage();
+      return { area, length: null, breadth: null };
+    }
+    return { area: null, length: null, breadth: null };
+  }
   const area = inputs.length * inputs.breadth;
   return { area, length: inputs.length, breadth: inputs.breadth };
 }
@@ -214,10 +251,14 @@ function computeArea(inputs) {
 function addItemFromForm() {
   const mode = getMode();
   const inputs = readInputs();
+  const existingItem = editingId
+    ? getItems().find((entry) => entry.id === editingId)
+    : null;
+  const overrides = existingItem?.overrides || {};
 
   if (mode === "custom") {
     if (!validateCustomInputs(inputs)) return;
-    const item = buildCustomItem(inputs);
+    const item = buildCustomItem(inputs, overrides);
     let id = editingId;
     if (editingId) {
       updateItem(editingId, item);
@@ -238,6 +279,10 @@ function addItemFromForm() {
   setTitle(inputs.userName);
 
   const { area, length, breadth } = computeArea(inputs);
+  if (!area) {
+    alert("Quantity input not supported for this category/unit.");
+    return;
+  }
   const guidedInputs = { ...inputs, area, length, breadth };
 
   let item;
@@ -256,24 +301,27 @@ function addItemFromForm() {
       skirtingNeeded: guidedInputs.skirtingNeeded,
       floorType: guidedInputs.floorType,
       prices,
+      overrides,
     });
-    item = buildFlooringItem(guidedInputs, calculated, prices);
+    item = buildFlooringItem(guidedInputs, calculated, prices, overrides);
   } else if (category === "tiles") {
     const prices = getTilePrices({ tilePrice: guidedInputs.tilePrice });
     const calculated = computeTiles({
       area: guidedInputs.area,
       tileSizeCm: guidedInputs.tileSize,
       prices,
+      overrides,
     });
-    item = buildGuidedItem("tiles", guidedInputs, calculated, prices);
+    item = buildGuidedItem("tiles", guidedInputs, calculated, prices, overrides);
   } else if (category === "paint") {
     const prices = getPaintPrices({ paintPrice: guidedInputs.paintPrice });
     const calculated = computePaint({
       area: guidedInputs.area,
       coats: guidedInputs.paintCoats,
       prices,
+      overrides,
     });
-    item = buildGuidedItem("paint", guidedInputs, calculated, prices);
+    item = buildGuidedItem("paint", guidedInputs, calculated, prices, overrides);
   } else if (category === "wallpaper") {
     const prices = getWallpaperPrices({
       rollPrice: guidedInputs.wallpaperPrice,
@@ -282,8 +330,9 @@ function addItemFromForm() {
     const calculated = computeWallpaper({
       area: guidedInputs.area,
       prices,
+      overrides,
     });
-    item = buildGuidedItem("wallpaper", guidedInputs, calculated, prices);
+    item = buildGuidedItem("wallpaper", guidedInputs, calculated, prices, overrides);
   } else {
     alert("Unsupported category.");
     return;
@@ -361,6 +410,8 @@ function startEditing(item) {
   formEls.length.value = item.inputs.length || "";
   formEls.breadth.value = item.inputs.breadth || "";
   formEls.areaInput.value = item.inputs.areaInput || item.inputs.area || "";
+  formEls.guidedQty.value = item.inputs.guidedQty || "";
+  formEls.guidedUnit.value = item.inputs.guidedUnit || "";
   formEls.doors.value = item.inputs.doors || 0;
   formEls.skirtingNeeded.value = item.inputs.skirtingNeeded || "yes";
   formEls.floorType.value = item.inputs.floorType || "vinyl";
@@ -377,6 +428,106 @@ function startEditing(item) {
   addAreaBtn.innerHTML =
     '<i class="ph ph-check-circle" style="font-size: 20px; color: white;"></i> Update Item';
   formEls.placeName.focus();
+}
+
+function rebuildItem(item, overrides) {
+  if (item.mode === "custom") {
+    return buildCustomItem(item.inputs, overrides);
+  }
+
+  const inputs = { ...item.inputs };
+  const computed = computeArea(inputs);
+  const area = computed.area || inputs.area || item.calculated?.area || 0;
+  const guidedInputs = { ...inputs, area };
+
+  if (item.kind === "flooring") {
+    const prices = getFlooringPrices({
+      floorType: guidedInputs.floorType,
+      floorPrice: guidedInputs.price,
+      gumPrice: guidedInputs.gumPrice,
+      doorProfilePrice: guidedInputs.doorProfilePrice,
+    });
+    const calculated = computeFlooring({
+      length: guidedInputs.length,
+      breadth: guidedInputs.breadth,
+      doors: guidedInputs.doors,
+      skirtingNeeded: guidedInputs.skirtingNeeded,
+      floorType: guidedInputs.floorType,
+      prices,
+      overrides,
+    });
+    return buildFlooringItem(guidedInputs, calculated, prices, overrides);
+  }
+
+  if (item.kind === "tiles") {
+    const prices = getTilePrices({ tilePrice: guidedInputs.tilePrice });
+    const calculated = computeTiles({
+      area: guidedInputs.area,
+      tileSizeCm: guidedInputs.tileSize,
+      prices,
+      overrides,
+    });
+    return buildGuidedItem("tiles", guidedInputs, calculated, prices, overrides);
+  }
+
+  if (item.kind === "paint") {
+    const prices = getPaintPrices({ paintPrice: guidedInputs.paintPrice });
+    const calculated = computePaint({
+      area: guidedInputs.area,
+      coats: guidedInputs.paintCoats,
+      prices,
+      overrides,
+    });
+    return buildGuidedItem("paint", guidedInputs, calculated, prices, overrides);
+  }
+
+  if (item.kind === "wallpaper") {
+    const prices = getWallpaperPrices({
+      rollPrice: guidedInputs.wallpaperPrice,
+      adhesivePrice: guidedInputs.wallpaperGluePrice,
+    });
+    const calculated = computeWallpaper({
+      area: guidedInputs.area,
+      prices,
+      overrides,
+    });
+    return buildGuidedItem("wallpaper", guidedInputs, calculated, prices, overrides);
+  }
+
+  return item;
+}
+
+function adjustItemLines(item) {
+  const lines = item.calculated?.lines || [];
+  if (!lines.length) return;
+
+  const nextOverrides = { ...(item.overrides || {}) };
+
+  for (const line of lines) {
+    const current = nextOverrides[line.key] ?? line.subtotal;
+    const raw = prompt(
+      `Override ${line.label} subtotal (current ₦${current.toLocaleString()}). Leave blank to reset.`,
+      String(current)
+    );
+    if (raw === null) return;
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      delete nextOverrides[line.key];
+      continue;
+    }
+    const value = parseFloat(trimmed);
+    if (Number.isNaN(value) || value < 0) {
+      alert("Invalid amount.");
+      return;
+    }
+    nextOverrides[line.key] = value;
+  }
+
+  const rebuilt = rebuildItem(item, nextOverrides);
+  rebuilt.id = item.id;
+  updateItem(item.id, rebuilt);
+  updateGrandTotal(getGrandTotal());
+  upsertCard(buildItemCard(rebuilt));
 }
 
 function getQuotationTitle() {
@@ -595,6 +746,13 @@ areasContainer.addEventListener("click", (event) => {
     const item = getItems().find((entry) => entry.id === id);
     if (!item) return;
     startEditing(item);
+    return;
+  }
+  if (action === "adjust") {
+    const id = Number(card.dataset.id);
+    const item = getItems().find((entry) => entry.id === id);
+    if (!item) return;
+    adjustItemLines(item);
   }
 });
 

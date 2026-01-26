@@ -70,6 +70,9 @@ export function buildAreaCard(item) {
         <button data-action="edit" class="remove-btn" style="background:none; border:none; color: #0f172a; cursor:pointer;" title="Edit Item">
           <i class="ph ph-pencil-simple" style="font-size: 18px;"></i>
         </button>
+        <button data-action="adjust" class="remove-btn" style="background:none; border:none; color: #0f172a; cursor:pointer;" title="Adjust Line Totals">
+          <i class="ph ph-sliders" style="font-size: 18px;"></i>
+        </button>
         <button data-action="remove" class="remove-btn" style="background:none; border:none; color: #ef4444; cursor:pointer;" title="Remove Item">
           <i class="ph ph-trash" style="font-size: 18px;"></i>
         </button>
@@ -152,6 +155,9 @@ export function buildItemCard(item) {
       <div class="card-actions">
         <button data-action="edit" class="remove-btn" style="background:none; border:none; color: #0f172a; cursor:pointer;" title="Edit Item">
           <i class="ph ph-pencil-simple" style="font-size: 18px;"></i>
+        </button>
+        <button data-action="adjust" class="remove-btn" style="background:none; border:none; color: #0f172a; cursor:pointer;" title="Adjust Line Totals">
+          <i class="ph ph-sliders" style="font-size: 18px;"></i>
         </button>
         <button data-action="remove" class="remove-btn" style="background:none; border:none; color: #ef4444; cursor:pointer;" title="Remove Item">
           <i class="ph ph-trash" style="font-size: 18px;"></i>
