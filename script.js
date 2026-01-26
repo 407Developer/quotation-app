@@ -35,6 +35,12 @@ const addAreaBtn = document.getElementById("addAreaBtn");
 const printBtn = document.getElementById("printBtn");
 const saveQuoteBtn = document.getElementById("saveQuoteBtn");
 const historyList = document.getElementById("historyList");
+const historyToggleBtn = document.getElementById("historyToggleBtn");
+const historySheet = document.getElementById("historySheet");
+const historyOverlay = document.getElementById("historyOverlay");
+const historyHandle = document.getElementById("historyHandle");
+
+let sheetDrag = null;
 
 function readInputs() {
   return {
@@ -226,9 +232,83 @@ function handleHistoryAction(event) {
   }
 }
 
+function setSheetTranslate(valuePx) {
+  historySheet.style.setProperty("--sheet-translate", `${valuePx}px`);
+}
+
+function getSheetHeight() {
+  return historySheet.getBoundingClientRect().height;
+}
+
+function openHistorySheet() {
+  historySheet.classList.add("is-open");
+  historyOverlay.classList.add("is-open");
+  historySheet.setAttribute("aria-hidden", "false");
+  historyOverlay.setAttribute("aria-hidden", "false");
+  setSheetTranslate(0);
+}
+
+function closeHistorySheet() {
+  historySheet.classList.remove("is-open");
+  historyOverlay.classList.remove("is-open");
+  historySheet.setAttribute("aria-hidden", "true");
+  historyOverlay.setAttribute("aria-hidden", "true");
+  setSheetTranslate(getSheetHeight());
+}
+
+function toggleHistorySheet() {
+  if (historySheet.classList.contains("is-open")) {
+    closeHistorySheet();
+  } else {
+    openHistorySheet();
+  }
+}
+
+function handleSheetPointerDown(event) {
+  const target = event.target.closest("#historyHandle, .history-header");
+  if (!target) return;
+  const startY = event.clientY;
+  sheetDrag = {
+    startY,
+    startTranslate: historySheet.classList.contains("is-open") ? 0 : getSheetHeight(),
+  };
+  historySheet.style.transition = "none";
+  historySheet.setPointerCapture(event.pointerId);
+}
+
+function handleSheetPointerMove(event) {
+  if (!sheetDrag) return;
+  const delta = event.clientY - sheetDrag.startY;
+  const height = getSheetHeight();
+  const next = Math.min(Math.max(sheetDrag.startTranslate + delta, 0), height);
+  setSheetTranslate(next);
+}
+
+function handleSheetPointerUp(event) {
+  if (!sheetDrag) return;
+  historySheet.releasePointerCapture(event.pointerId);
+  historySheet.style.transition = "";
+  const height = getSheetHeight();
+  const current = parseFloat(
+    getComputedStyle(historySheet).getPropertyValue("--sheet-translate")
+  );
+  sheetDrag = null;
+  if (current > height * 0.35) {
+    closeHistorySheet();
+  } else {
+    openHistorySheet();
+  }
+}
+
 addAreaBtn.addEventListener("click", addArea);
 printBtn.addEventListener("click", () => window.print());
 saveQuoteBtn.addEventListener("click", handleSaveQuotation);
+historyToggleBtn.addEventListener("click", toggleHistorySheet);
+historyOverlay.addEventListener("click", closeHistorySheet);
+historySheet.addEventListener("pointerdown", handleSheetPointerDown);
+historySheet.addEventListener("pointermove", handleSheetPointerMove);
+historySheet.addEventListener("pointerup", handleSheetPointerUp);
+historySheet.addEventListener("pointercancel", handleSheetPointerUp);
 
 areasContainer.addEventListener("click", (event) => {
   const btn = event.target.closest("[data-action='remove']");
@@ -243,6 +323,7 @@ historyList.addEventListener("click", handleHistoryAction);
 function init() {
   updateGrandTotal(getGrandTotal());
   renderHistory(loadSavedQuotations());
+  closeHistorySheet();
 }
 
 init();
