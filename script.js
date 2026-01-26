@@ -1,194 +1,125 @@
-let grandTotal = 0;
-let areaNames = []; // Store names to check for duplicates
+import {
+  addAreaName,
+  addToGrandTotal,
+  hasAreaName,
+  quotationState,
+  removeAreaName,
+  subtractFromGrandTotal,
+} from "./js/state.js";
+import { computeFlooring, getFlooringPrices } from "./js/calc.js";
+import { buildAreaCard, setTitle, updateGrandTotal } from "./js/ui.js";
+
+const formEls = {
+  userName: document.getElementById("userName"),
+  placeName: document.getElementById("placeName"),
+  length: document.getElementById("length"),
+  breadth: document.getElementById("breadth"),
+  doors: document.getElementById("doors"),
+  skirtingNeeded: document.getElementById("skirtingNeeded"),
+  floorType: document.getElementById("floorType"),
+  price: document.getElementById("price"),
+  gumPrice: document.getElementById("gumPrice"),
+  doorProfilePrice: document.getElementById("doorProfilePrice"),
+};
+
+const areasContainer = document.getElementById("areasContainer");
+const addAreaBtn = document.getElementById("addAreaBtn");
+const printBtn = document.getElementById("printBtn");
+
+function readInputs() {
+  return {
+    userName: formEls.userName.value.trim(),
+    placeName: formEls.placeName.value.trim(),
+    length: parseFloat(formEls.length.value),
+    breadth: parseFloat(formEls.breadth.value),
+    doors: parseInt(formEls.doors.value, 10) || 0,
+    skirtingNeeded: formEls.skirtingNeeded.value,
+    floorType: formEls.floorType.value,
+    price: parseFloat(formEls.price.value),
+    gumPrice: parseFloat(formEls.gumPrice.value),
+    doorProfilePrice: parseFloat(formEls.doorProfilePrice.value) || 0,
+  };
+}
+
+function clearInputs() {
+  formEls.placeName.value = "";
+  formEls.length.value = "";
+  formEls.breadth.value = "";
+  formEls.doors.value = "";
+  formEls.placeName.focus();
+}
+
+function validateInputs({ placeName, length, breadth }) {
+  if (!placeName || Number.isNaN(length) || Number.isNaN(breadth)) {
+    alert("Please fill in place name, length, and breadth correctly.");
+    return false;
+  }
+
+  if (hasAreaName(placeName)) {
+    alert("This place has already been added to the quotation.");
+    return false;
+  }
+
+  return true;
+}
 
 function addArea() {
-  const userName = document.getElementById("userName").value.trim();
-  const placeName = document.getElementById("placeName").value.trim();
-  const length = parseFloat(document.getElementById("length").value);
-  const breadth = parseFloat(document.getElementById("breadth").value);
-  const doors = parseInt(document.getElementById("doors").value) || 0;
-  const skirtingNeeded = document.getElementById("skirtingNeeded").value;
-  const floorType = document.getElementById("floorType").value;
-  const price = parseFloat(document.getElementById("price").value);
-  const gumPrice = parseFloat(document.getElementById("gumPrice").value);
-  const doorProfilePrice = parseFloat(document.getElementById("doorProfilePrice").value) || 0; // Default to 0 if empty
+  const inputs = readInputs();
+  if (!validateInputs(inputs)) return;
 
-  // Validation
-  if (!placeName || isNaN(length) || isNaN(breadth)) {
-    alert("Please fill in place name, length, and breadth correctly.");
-    return;
-  }
-  
-  if (areaNames.includes(placeName.toLowerCase())) {
-    alert("This place has already been added to the quotation.");
-    return;
-  }
+  setTitle(inputs.userName);
 
-  // Update Title if provided
-  if (userName) {
-    document.getElementById("quotationTitle").innerText = "Quotation for " + userName;
-  }
+  const prices = getFlooringPrices({
+    floorType: inputs.floorType,
+    floorPrice: inputs.price,
+    gumPrice: inputs.gumPrice,
+    doorProfilePrice: inputs.doorProfilePrice,
+  });
 
-  // Default Prices if not provided
-  let prices = {
-    vinyl: price ? price : 9000,
-    spc: 17000, // Default SPC price
-    skirting: 10000,
-    floorGum: gumPrice ? gumPrice : 4000, // Default gum price if not set
-    filler: 4000,
-    skirtingGum: 4000,
-    doorProfile: doorProfilePrice
-  };
+  const calc = computeFlooring({
+    length: inputs.length,
+    breadth: inputs.breadth,
+    doors: inputs.doors,
+    skirtingNeeded: inputs.skirtingNeeded,
+    floorType: inputs.floorType,
+    prices,
+  });
 
-  /* ---------------- CALCULATIONS ---------------- */
+  addToGrandTotal(calc.areaTotal);
+  addAreaName(inputs.placeName);
+  updateGrandTotal(quotationState.grandTotal);
 
-  // Floor area
-  const floorArea = length * breadth;
+  const card = buildAreaCard({
+    placeName: inputs.placeName,
+    floorType: inputs.floorType,
+    skirtingNeeded: inputs.skirtingNeeded,
+    ...calc,
+  });
+  areasContainer.appendChild(card);
 
-  // Skirting
-  let skirtingQty = 0;
-  let fillerQty = 0;
-  let skirtingGumQty = 0;
-
-  if (skirtingNeeded === "yes") {
-    // Standard calculation: Perimeter / length of skirting board (approx 2.9m)
-    let perimeter = (length + breadth) * 2;
-    // Subtract door width (approx 0.9m per door)
-    let perimeterAdjusted = perimeter - (doors * 0.9);
-    
-    skirtingQty = Math.ceil(Math.max(perimeterAdjusted, 0) / 2.9);
-    
-    fillerQty = Math.ceil(skirtingQty / 2);
-    skirtingGumQty = Math.ceil(fillerQty / 3);
-  }
-
-  // Floor gum (VINYL ONLY) - 1 bucket per 20sqm
-  const floorGum = (floorType === "vinyl") ? Math.ceil(floorArea / 20) : 0;
-
-  // Door end profiles - 1 profile covers approx 2.4m, door is 0.9m
-  const doorEndProfiles = (doors > 0) ? Math.ceil((doors * 0.9) / 2.4) : 0;
-
-  /* ---------------- PRICING ---------------- */
-
-  const floorUnitPrice = prices[floorType] || 0;
-  const floorSubtotal = floorArea * floorUnitPrice;
-
-  const skirtingSubtotal = skirtingQty * prices.skirting;
-  const floorGumSubtotal = floorGum * prices.floorGum;
-  const fillerSubtotal = fillerQty * prices.filler;
-  const skirtingGumSubtotal = skirtingGumQty * prices.skirtingGum;
-  const doorProfileSubtotal = doorEndProfiles * prices.doorProfile;
-
-  const areaTotal =
-    floorSubtotal +
-    skirtingSubtotal +
-    floorGumSubtotal +
-    fillerSubtotal +
-    skirtingGumSubtotal +
-    doorProfileSubtotal;
-
-  /* ---------------- UPDATE STATE ---------------- */
-
-  grandTotal += areaTotal;
-  areaNames.push(placeName.toLowerCase());
-  
-  updateGrandTotal();
-
-  /* ---------------- DISPLAY CARD ---------------- */
-
-  const card = document.createElement("div");
-  card.className = "area-card";
-  card.id = `card-${placeName.replace(/\s+/g, '-')}`;
-
-  // Helper to format currency
-  const fmt = (n) => "₦" + n.toLocaleString();
-
-  // Construct HTML
-  let html = `
-    <div class="area-header">
-      <h3><i class="ph ph-house-line"></i> ${placeName}</h3>
-      <button onclick="removeArea('${placeName}', ${areaTotal})" class="remove-btn" style="background:none; border:none; color: #ef4444; cursor:pointer;" title="Remove Item">
-        <i class="ph ph-trash" style="font-size: 18px;"></i>
-      </button>
-    </div>
-
-    <div class="area-details">
-      <div class="detail-row">
-        <span>Flooring (${floorType.toUpperCase()}) - ${floorArea.toFixed(2)} sqm</span>
-        <em>${fmt(floorSubtotal)}</em>
-      </div>
-  `;
-
-  if (skirtingNeeded === "yes") {
-    html += `
-      <div class="detail-row">
-        <span>Skirting (${skirtingQty} pcs)</span>
-        <em>${fmt(skirtingSubtotal)}</em>
-      </div>
-      <div class="detail-row">
-        <span>Filler (${fillerQty} bags)</span>
-        <em>${fmt(fillerSubtotal)}</em>
-      </div>
-      <div class="detail-row">
-        <span>Skirting Gum (${skirtingGumQty} pcs)</span>
-        <em>${fmt(skirtingGumSubtotal)}</em>
-      </div>
-    `;
-  }
-
-  if (floorType === "vinyl" && floorGum > 0) {
-    html += `
-      <div class="detail-row">
-        <span>Floor Gum (${floorGum} pcs)</span>
-        <em>${fmt(floorGumSubtotal)}</em>
-      </div>
-    `;
-  }
-
-  if (doorEndProfiles > 0) {
-    html += `
-      <div class="detail-row">
-        <span>Door Profiles (${doorEndProfiles} pcs)</span>
-        <em>${fmt(doorProfileSubtotal)}</em>
-      </div>
-    `;
-  }
-
-  html += `
-    </div>
-    <div class="area-total">
-      <span>Total</span>
-      <span>${fmt(areaTotal)}</span>
-    </div>
-  `;
-
-  card.innerHTML = html;
-  document.getElementById("areasContainer").appendChild(card);
-
-  // Clear inputs for next entry
-  document.getElementById("placeName").value = "";
-  document.getElementById("length").value = "";
-  document.getElementById("breadth").value = "";
-  document.getElementById("doors").value = "";
-  document.getElementById("placeName").focus();
+  clearInputs();
 }
 
-function updateGrandTotal() {
-  document.getElementById("grandTotal").innerHTML = 
-    `<span class="total-label">Grand Total</span> ₦${grandTotal.toLocaleString()}`;
+function removeArea(card) {
+  const name = card.dataset.name;
+  const amount = parseFloat(card.dataset.amount);
+  if (!confirm("Remove " + name + " from quotation?")) return;
+
+  card.remove();
+  subtractFromGrandTotal(amount);
+  removeAreaName(name);
+  updateGrandTotal(quotationState.grandTotal);
 }
 
-function removeArea(name, amount) {
-  if(!confirm("Remove " + name + " from quotation?")) return;
+addAreaBtn.addEventListener("click", addArea);
+printBtn.addEventListener("click", () => window.print());
 
-  // Remove from DOM
-  const cardId = `card-${name.replace(/\s+/g, '-')}`;
-  const card = document.getElementById(cardId);
-  if(card) card.remove();
+areasContainer.addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-action='remove']");
+  if (!btn) return;
+  const card = btn.closest(".area-card");
+  if (!card) return;
+  removeArea(card);
+});
 
-  // Update state
-  grandTotal -= amount;
-  areaNames = areaNames.filter(n => n !== name.toLowerCase());
-  
-  updateGrandTotal();
-}
+updateGrandTotal(quotationState.grandTotal);
