@@ -15,29 +15,34 @@ export function updateGrandTotal(total) {
   el.innerHTML = `<span class="total-label">Grand Total</span> ₦${total.toLocaleString()}`;
 }
 
-export function buildAreaCard({
-  placeName,
-  floorType,
-  floorArea,
-  floorSubtotal,
-  skirtingNeeded,
-  skirtingQty,
-  skirtingSubtotal,
-  fillerQty,
-  fillerSubtotal,
-  skirtingGumQty,
-  skirtingGumSubtotal,
-  floorGum,
-  floorGumSubtotal,
-  doorEndProfiles,
-  doorProfileSubtotal,
-  areaTotal,
-}) {
+export function buildAreaCard(item) {
+  const {
+    id,
+    placeName,
+    inputs: { floorType, skirtingNeeded },
+    calculated: {
+      floorArea,
+      floorSubtotal,
+      skirtingQty,
+      skirtingSubtotal,
+      fillerQty,
+      fillerSubtotal,
+      skirtingGumQty,
+      skirtingGumSubtotal,
+      floorGum,
+      floorGumSubtotal,
+      doorEndProfiles,
+      doorProfileSubtotal,
+      areaTotal,
+    },
+  } = item;
+
   const card = document.createElement("div");
   card.className = "area-card";
   card.id = `card-${placeName.replace(/\s+/g, "-")}`;
   card.dataset.name = placeName;
   card.dataset.amount = String(areaTotal);
+  card.dataset.id = String(id);
 
   let html = `
     <div class="area-header">

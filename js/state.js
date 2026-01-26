@@ -1,26 +1,28 @@
 export const quotationState = {
-  grandTotal: 0,
-  areaNames: [],
+  items: [],
+  nextId: 1,
 };
 
-export function addAreaName(name) {
-  quotationState.areaNames.push(name.toLowerCase());
+export function addItem(item) {
+  const id = quotationState.nextId++;
+  quotationState.items.push({ ...item, id });
+  return id;
 }
 
-export function hasAreaName(name) {
-  return quotationState.areaNames.includes(name.toLowerCase());
+export function removeItem(id) {
+  quotationState.items = quotationState.items.filter((item) => item.id !== id);
 }
 
-export function removeAreaName(name) {
-  quotationState.areaNames = quotationState.areaNames.filter(
-    (n) => n !== name.toLowerCase()
+export function hasPlaceName(name) {
+  const nameLower = name.toLowerCase();
+  return quotationState.items.some(
+    (item) => item.placeName?.toLowerCase() === nameLower
   );
 }
 
-export function addToGrandTotal(amount) {
-  quotationState.grandTotal += amount;
-}
-
-export function subtractFromGrandTotal(amount) {
-  quotationState.grandTotal -= amount;
+export function getGrandTotal() {
+  return quotationState.items.reduce(
+    (total, item) => total + (item.calculated?.areaTotal || 0),
+    0
+  );
 }

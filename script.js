@@ -1,12 +1,6 @@
-import {
-  addAreaName,
-  addToGrandTotal,
-  hasAreaName,
-  quotationState,
-  removeAreaName,
-  subtractFromGrandTotal,
-} from "./js/state.js";
 import { computeFlooring, getFlooringPrices } from "./js/calc.js";
+import { buildFlooringItem } from "./js/model.js";
+import { addItem, getGrandTotal, hasPlaceName, removeItem } from "./js/state.js";
 import { buildAreaCard, setTitle, updateGrandTotal } from "./js/ui.js";
 
 const formEls = {
@@ -55,7 +49,7 @@ function validateInputs({ placeName, length, breadth }) {
     return false;
   }
 
-  if (hasAreaName(placeName)) {
+  if (hasPlaceName(placeName)) {
     alert("This place has already been added to the quotation.");
     return false;
   }
@@ -76,7 +70,7 @@ function addArea() {
     doorProfilePrice: inputs.doorProfilePrice,
   });
 
-  const calc = computeFlooring({
+  const calculated = computeFlooring({
     length: inputs.length,
     breadth: inputs.breadth,
     doors: inputs.doors,
@@ -85,16 +79,12 @@ function addArea() {
     prices,
   });
 
-  addToGrandTotal(calc.areaTotal);
-  addAreaName(inputs.placeName);
-  updateGrandTotal(quotationState.grandTotal);
+  const item = buildFlooringItem(inputs, calculated, prices);
+  item.id = addItem(item);
 
-  const card = buildAreaCard({
-    placeName: inputs.placeName,
-    floorType: inputs.floorType,
-    skirtingNeeded: inputs.skirtingNeeded,
-    ...calc,
-  });
+  updateGrandTotal(getGrandTotal());
+
+  const card = buildAreaCard(item);
   areasContainer.appendChild(card);
 
   clearInputs();
@@ -102,13 +92,12 @@ function addArea() {
 
 function removeArea(card) {
   const name = card.dataset.name;
-  const amount = parseFloat(card.dataset.amount);
+  const id = Number(card.dataset.id);
   if (!confirm("Remove " + name + " from quotation?")) return;
 
   card.remove();
-  subtractFromGrandTotal(amount);
-  removeAreaName(name);
-  updateGrandTotal(quotationState.grandTotal);
+  removeItem(id);
+  updateGrandTotal(getGrandTotal());
 }
 
 addAreaBtn.addEventListener("click", addArea);
@@ -122,4 +111,4 @@ areasContainer.addEventListener("click", (event) => {
   removeArea(card);
 });
 
-updateGrandTotal(quotationState.grandTotal);
+updateGrandTotal(getGrandTotal());
