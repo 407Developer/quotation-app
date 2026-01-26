@@ -111,6 +111,45 @@ body {
   gap: 20px;
 }
 
+/* Mode Toggle */
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  background: #eef2ff;
+  padding: 6px;
+  border-radius: 999px;
+}
+
+.toggle-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn.is-active {
+  background: white;
+  color: var(--text-main);
+  box-shadow: var(--shadow-sm);
+}
+
+body[data-mode="guided"] .custom-only {
+  display: none !important;
+}
+
+body[data-mode="custom"] .guided-only {
+  display: none !important;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
 /* Form Elements */
 .row {
   display: grid;

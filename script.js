@@ -1,5 +1,14 @@
-import { computeFlooring, getFlooringPrices } from "./js/calc.js";
-import { buildFlooringItem } from "./js/model.js";
+import {
+  computeFlooring,
+  computePaint,
+  computeTiles,
+  computeWallpaper,
+  getFlooringPrices,
+  getPaintPrices,
+  getTilePrices,
+  getWallpaperPrices,
+} from "./js/calc.js";
+import { buildCustomItem, buildFlooringItem, buildGuidedItem } from "./js/model.js";
 import {
   addItem,
   getGrandTotal,
@@ -16,19 +25,33 @@ import {
   renameQuotation,
   saveQuotation,
 } from "./js/storage.js";
-import { buildAreaCard, setTitle, setTitleText, updateGrandTotal } from "./js/ui.js";
+import { buildItemCard, setTitle, setTitleText, updateGrandTotal } from "./js/ui.js";
 
 const formEls = {
   userName: document.getElementById("userName"),
   placeName: document.getElementById("placeName"),
   length: document.getElementById("length"),
   breadth: document.getElementById("breadth"),
+  areaInput: document.getElementById("areaInput"),
+  inputStyle: document.getElementById("inputStyle"),
+  guidedCategory: document.getElementById("guidedCategory"),
   doors: document.getElementById("doors"),
   skirtingNeeded: document.getElementById("skirtingNeeded"),
   floorType: document.getElementById("floorType"),
   price: document.getElementById("price"),
   gumPrice: document.getElementById("gumPrice"),
   doorProfilePrice: document.getElementById("doorProfilePrice"),
+  tilePrice: document.getElementById("tilePrice"),
+  tileSize: document.getElementById("tileSize"),
+  paintPrice: document.getElementById("paintPrice"),
+  paintCoats: document.getElementById("paintCoats"),
+  wallpaperPrice: document.getElementById("wallpaperPrice"),
+  wallpaperGluePrice: document.getElementById("wallpaperGluePrice"),
+  customName: document.getElementById("customName"),
+  customQty: document.getElementById("customQty"),
+  customUnit: document.getElementById("customUnit"),
+  customUnitPrice: document.getElementById("customUnitPrice"),
+  customNotes: document.getElementById("customNotes"),
 };
 
 const areasContainer = document.getElementById("areasContainer");
@@ -40,9 +63,43 @@ const historyToggleBtn = document.getElementById("historyToggleBtn");
 const historySheet = document.getElementById("historySheet");
 const historyOverlay = document.getElementById("historyOverlay");
 const historyHandle = document.getElementById("historyHandle");
+const modeToggle = document.getElementById("modeToggle");
+const dimensionsRow = document.getElementById("dimensionsRow");
+const areaGroup = document.getElementById("areaGroup");
+const flooringConfig = document.getElementById("flooringConfig");
+const flooringExtras = document.getElementById("flooringExtras");
+const tilesConfig = document.getElementById("tilesConfig");
+const paintConfig = document.getElementById("paintConfig");
+const wallpaperConfig = document.getElementById("wallpaperConfig");
 
 let sheetDrag = null;
 let editingId = null;
+
+function setMode(mode) {
+  document.body.dataset.mode = mode;
+  modeToggle
+    .querySelectorAll(".toggle-btn")
+    .forEach((btn) => btn.classList.toggle("is-active", btn.dataset.mode === mode));
+}
+
+function getMode() {
+  return document.body.dataset.mode || "guided";
+}
+
+function setCategory(category) {
+  formEls.guidedCategory.value = category;
+  flooringConfig.classList.toggle("is-hidden", category !== "flooring");
+  flooringExtras.classList.toggle("is-hidden", category !== "flooring");
+  tilesConfig.classList.toggle("is-hidden", category !== "tiles");
+  paintConfig.classList.toggle("is-hidden", category !== "paint");
+  wallpaperConfig.classList.toggle("is-hidden", category !== "wallpaper");
+}
+
+function setInputStyle(style) {
+  formEls.inputStyle.value = style;
+  dimensionsRow.classList.toggle("is-hidden", style !== "dimensions");
+  areaGroup.classList.toggle("is-hidden", style !== "area");
+}
 
 function readInputs() {
   return {
@@ -50,12 +107,26 @@ function readInputs() {
     placeName: formEls.placeName.value.trim(),
     length: parseFloat(formEls.length.value),
     breadth: parseFloat(formEls.breadth.value),
+    areaInput: parseFloat(formEls.areaInput.value),
+    inputStyle: formEls.inputStyle.value,
+    guidedCategory: formEls.guidedCategory.value,
     doors: parseInt(formEls.doors.value, 10) || 0,
     skirtingNeeded: formEls.skirtingNeeded.value,
     floorType: formEls.floorType.value,
     price: parseFloat(formEls.price.value),
     gumPrice: parseFloat(formEls.gumPrice.value),
     doorProfilePrice: parseFloat(formEls.doorProfilePrice.value) || 0,
+    tilePrice: parseFloat(formEls.tilePrice.value),
+    tileSize: parseFloat(formEls.tileSize.value),
+    paintPrice: parseFloat(formEls.paintPrice.value),
+    paintCoats: parseInt(formEls.paintCoats.value, 10),
+    wallpaperPrice: parseFloat(formEls.wallpaperPrice.value),
+    wallpaperGluePrice: parseFloat(formEls.wallpaperGluePrice.value),
+    customName: formEls.customName.value.trim(),
+    customQty: parseFloat(formEls.customQty.value),
+    customUnit: formEls.customUnit.value.trim(),
+    customUnitPrice: parseFloat(formEls.customUnitPrice.value),
+    customNotes: formEls.customNotes.value.trim(),
   };
 }
 
@@ -63,17 +134,46 @@ function clearInputs() {
   formEls.placeName.value = "";
   formEls.length.value = "";
   formEls.breadth.value = "";
+  formEls.areaInput.value = "";
   formEls.doors.value = "";
-  formEls.placeName.focus();
+  formEls.customName.value = "";
+  formEls.customQty.value = "";
+  formEls.customUnit.value = "";
+  formEls.customUnitPrice.value = "";
+  formEls.customNotes.value = "";
+  if (getMode() === "custom") {
+    formEls.customName.focus();
+  } else {
+    formEls.placeName.focus();
+  }
 }
 
-function validateInputs({ placeName, length, breadth }, ignoreId = null) {
-  if (!placeName || Number.isNaN(length) || Number.isNaN(breadth)) {
-    alert("Please fill in place name, length, and breadth correctly.");
+function validateGuidedInputs(inputs, ignoreId = null) {
+  if (!inputs.placeName) {
+    alert("Please fill in place name.");
     return false;
   }
 
-  if (hasPlaceName(placeName, ignoreId)) {
+  if (inputs.inputStyle === "dimensions") {
+    if (
+      Number.isNaN(inputs.length) ||
+      Number.isNaN(inputs.breadth) ||
+      inputs.length <= 0 ||
+      inputs.breadth <= 0
+    ) {
+      alert("Please fill in length and breadth correctly.");
+      return false;
+    }
+  }
+
+  if (inputs.inputStyle === "area") {
+    if (Number.isNaN(inputs.areaInput) || inputs.areaInput <= 0) {
+      alert("Please fill in area correctly.");
+      return false;
+    }
+  }
+
+  if (hasPlaceName(inputs.placeName, ignoreId)) {
     alert("This place has already been added to the quotation.");
     return false;
   }
@@ -81,29 +181,114 @@ function validateInputs({ placeName, length, breadth }, ignoreId = null) {
   return true;
 }
 
-function addArea() {
+function validateCustomInputs(inputs) {
+  if (!inputs.customName) {
+    alert("Please fill in item name.");
+    return false;
+  }
+  if (Number.isNaN(inputs.customQty) || inputs.customQty <= 0) {
+    alert("Please fill in quantity correctly.");
+    return false;
+  }
+  if (Number.isNaN(inputs.customUnitPrice) || inputs.customUnitPrice < 0) {
+    alert("Please fill in unit price correctly.");
+    return false;
+  }
+  if (!inputs.customUnit) {
+    alert("Please fill in unit.");
+    return false;
+  }
+  return true;
+}
+
+function computeArea(inputs) {
+  if (inputs.inputStyle === "area") {
+    const area = inputs.areaInput;
+    const side = Math.sqrt(area || 0);
+    return { area, length: side, breadth: side };
+  }
+  const area = inputs.length * inputs.breadth;
+  return { area, length: inputs.length, breadth: inputs.breadth };
+}
+
+function addItemFromForm() {
+  const mode = getMode();
   const inputs = readInputs();
-  if (!validateInputs(inputs, editingId)) return;
+
+  if (mode === "custom") {
+    if (!validateCustomInputs(inputs)) return;
+    const item = buildCustomItem(inputs);
+    let id = editingId;
+    if (editingId) {
+      updateItem(editingId, item);
+    } else {
+      id = addItem(item);
+    }
+    item.id = id;
+    updateGrandTotal(getGrandTotal());
+    const card = buildItemCard(item);
+    upsertCard(card);
+    clearInputs();
+    resetEditing();
+    return;
+  }
+
+  if (!validateGuidedInputs(inputs, editingId)) return;
 
   setTitle(inputs.userName);
 
-  const prices = getFlooringPrices({
-    floorType: inputs.floorType,
-    floorPrice: inputs.price,
-    gumPrice: inputs.gumPrice,
-    doorProfilePrice: inputs.doorProfilePrice,
-  });
+  const { area, length, breadth } = computeArea(inputs);
+  const guidedInputs = { ...inputs, area, length, breadth };
 
-  const calculated = computeFlooring({
-    length: inputs.length,
-    breadth: inputs.breadth,
-    doors: inputs.doors,
-    skirtingNeeded: inputs.skirtingNeeded,
-    floorType: inputs.floorType,
-    prices,
-  });
+  let item;
+  const category = inputs.guidedCategory;
+  if (category === "flooring") {
+    const prices = getFlooringPrices({
+      floorType: guidedInputs.floorType,
+      floorPrice: guidedInputs.price,
+      gumPrice: guidedInputs.gumPrice,
+      doorProfilePrice: guidedInputs.doorProfilePrice,
+    });
+    const calculated = computeFlooring({
+      length: guidedInputs.length,
+      breadth: guidedInputs.breadth,
+      doors: guidedInputs.doors,
+      skirtingNeeded: guidedInputs.skirtingNeeded,
+      floorType: guidedInputs.floorType,
+      prices,
+    });
+    item = buildFlooringItem(guidedInputs, calculated, prices);
+  } else if (category === "tiles") {
+    const prices = getTilePrices({ tilePrice: guidedInputs.tilePrice });
+    const calculated = computeTiles({
+      area: guidedInputs.area,
+      tileSizeCm: guidedInputs.tileSize,
+      prices,
+    });
+    item = buildGuidedItem("tiles", guidedInputs, calculated, prices);
+  } else if (category === "paint") {
+    const prices = getPaintPrices({ paintPrice: guidedInputs.paintPrice });
+    const calculated = computePaint({
+      area: guidedInputs.area,
+      coats: guidedInputs.paintCoats,
+      prices,
+    });
+    item = buildGuidedItem("paint", guidedInputs, calculated, prices);
+  } else if (category === "wallpaper") {
+    const prices = getWallpaperPrices({
+      rollPrice: guidedInputs.wallpaperPrice,
+      adhesivePrice: guidedInputs.wallpaperGluePrice,
+    });
+    const calculated = computeWallpaper({
+      area: guidedInputs.area,
+      prices,
+    });
+    item = buildGuidedItem("wallpaper", guidedInputs, calculated, prices);
+  } else {
+    alert("Unsupported category.");
+    return;
+  }
 
-  const item = buildFlooringItem(inputs, calculated, prices);
   let id = editingId;
   if (editingId) {
     updateItem(editingId, item);
@@ -113,8 +298,7 @@ function addArea() {
   item.id = id;
 
   updateGrandTotal(getGrandTotal());
-
-  const card = buildAreaCard(item);
+  const card = buildItemCard(item);
   upsertCard(card);
 
   clearInputs();
@@ -149,23 +333,49 @@ function upsertCard(card) {
 function resetEditing() {
   editingId = null;
   addAreaBtn.innerHTML =
-    '<i class="ph ph-plus-circle" style="font-size: 20px; color: white;"></i> Add Area';
+    '<i class="ph ph-plus-circle" style="font-size: 20px; color: white;"></i> Add Item';
 }
 
 function startEditing(item) {
   editingId = item.id;
+  if (item.mode === "custom") {
+    setMode("custom");
+    formEls.customName.value = item.name || item.inputs.customName || "";
+    formEls.customQty.value = item.inputs.customQty || "";
+    formEls.customUnit.value = item.inputs.customUnit || "";
+    formEls.customUnitPrice.value = item.inputs.customUnitPrice || "";
+    formEls.customNotes.value = item.inputs.customNotes || "";
+    addAreaBtn.innerHTML =
+      '<i class="ph ph-check-circle" style="font-size: 20px; color: white;"></i> Update Item';
+    formEls.customName.focus();
+    return;
+  }
+
+  setMode("guided");
+  setCategory(item.kind || "flooring");
+  const inputStyle = item.inputs.inputStyle || "dimensions";
+  setInputStyle(inputStyle);
+
   formEls.userName.value = item.inputs.userName || "";
-  formEls.placeName.value = item.placeName;
-  formEls.length.value = item.inputs.length;
-  formEls.breadth.value = item.inputs.breadth;
+  formEls.placeName.value = item.placeName || "";
+  formEls.length.value = item.inputs.length || "";
+  formEls.breadth.value = item.inputs.breadth || "";
+  formEls.areaInput.value = item.inputs.areaInput || item.inputs.area || "";
   formEls.doors.value = item.inputs.doors || 0;
-  formEls.skirtingNeeded.value = item.inputs.skirtingNeeded;
-  formEls.floorType.value = item.inputs.floorType;
+  formEls.skirtingNeeded.value = item.inputs.skirtingNeeded || "yes";
+  formEls.floorType.value = item.inputs.floorType || "vinyl";
   formEls.price.value = item.inputs.price || "";
   formEls.gumPrice.value = item.inputs.gumPrice || "";
   formEls.doorProfilePrice.value = item.inputs.doorProfilePrice || "";
+  formEls.tilePrice.value = item.inputs.tilePrice || "";
+  formEls.tileSize.value = item.inputs.tileSize || "";
+  formEls.paintPrice.value = item.inputs.paintPrice || "";
+  formEls.paintCoats.value = item.inputs.paintCoats || "";
+  formEls.wallpaperPrice.value = item.inputs.wallpaperPrice || "";
+  formEls.wallpaperGluePrice.value = item.inputs.wallpaperGluePrice || "";
+
   addAreaBtn.innerHTML =
-    '<i class="ph ph-check-circle" style="font-size: 20px; color: white;"></i> Update Area';
+    '<i class="ph ph-check-circle" style="font-size: 20px; color: white;"></i> Update Item';
   formEls.placeName.focus();
 }
 
@@ -189,7 +399,7 @@ function buildQuotationPayload() {
 function renderAllItems(items) {
   areasContainer.innerHTML = "";
   items.forEach((item) => {
-    const card = buildAreaCard(item);
+    const card = buildItemCard(item);
     areasContainer.appendChild(card);
   });
 }
@@ -349,7 +559,7 @@ function handleSheetPointerUp(event) {
   }
 }
 
-addAreaBtn.addEventListener("click", addArea);
+addAreaBtn.addEventListener("click", addItemFromForm);
 printBtn.addEventListener("click", () => window.print());
 saveQuoteBtn.addEventListener("click", handleSaveQuotation);
 historyToggleBtn.addEventListener("click", toggleHistorySheet);
@@ -358,6 +568,17 @@ historySheet.addEventListener("pointerdown", handleSheetPointerDown);
 historySheet.addEventListener("pointermove", handleSheetPointerMove);
 historySheet.addEventListener("pointerup", handleSheetPointerUp);
 historySheet.addEventListener("pointercancel", handleSheetPointerUp);
+modeToggle.addEventListener("click", (event) => {
+  const btn = event.target.closest(".toggle-btn");
+  if (!btn) return;
+  setMode(btn.dataset.mode);
+});
+formEls.guidedCategory.addEventListener("change", (event) => {
+  setCategory(event.target.value);
+});
+formEls.inputStyle.addEventListener("change", (event) => {
+  setInputStyle(event.target.value);
+});
 
 areasContainer.addEventListener("click", (event) => {
   const btn = event.target.closest("[data-action]");
@@ -384,6 +605,9 @@ function init() {
   renderHistory(loadSavedQuotations());
   closeHistorySheet();
   resetEditing();
+  setMode("guided");
+  setCategory(formEls.guidedCategory.value || "flooring");
+  setInputStyle("dimensions");
 }
 
 init();
