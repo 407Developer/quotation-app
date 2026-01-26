@@ -148,7 +148,12 @@ export function computeTiles({ area, tileSizeCm, prices }) {
     sandSubtotal,
     areaTotal,
     lines: [
-      { label: "Tiles", qty: tileCount, unit: "pcs", subtotal: tileSubtotal },
+      {
+        label: `Tiles (${tileCount} pcs)`,
+        qty: area,
+        unit: "sqm",
+        subtotal: tileSubtotal,
+      },
       { label: "Tile Gum", qty: tileGumQty, unit: "bags", subtotal: tileGumSubtotal },
       { label: "Cement", qty: cementQty, unit: "bags", subtotal: cementSubtotal },
       { label: "Sand", qty: sandQty, unit: "tons", subtotal: sandSubtotal },
