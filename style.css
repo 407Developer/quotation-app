@@ -28,6 +28,11 @@ body {
   padding: 40px 20px;
 }
 
+body.sheet-open {
+  overflow: hidden;
+  touch-action: none;
+}
+
 .app-container {
   width: 100%;
   max-width: 800px;
@@ -39,6 +44,7 @@ body {
   text-align: center;
   margin-bottom: 40px;
   animation: fadeInDown 0.6s ease-out;
+  position: relative;
 }
 
 .logo-icon {
@@ -64,6 +70,29 @@ body {
   color: var(--text-main);
 }
 
+.icon-btn {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-main);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
 .app-header p {
   color: var(--text-muted);
   font-size: 16px;
@@ -85,6 +114,52 @@ body {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.form-section > .guided-only:not(.row),
+.form-section > .custom-only:not(.row) {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Mode Toggle */
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  background: #eef2ff;
+  padding: 6px;
+  border-radius: 999px;
+}
+
+.toggle-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn.is-active {
+  background: white;
+  color: var(--text-main);
+  box-shadow: var(--shadow-sm);
+}
+
+body[data-mode="guided"] .custom-only {
+  display: none !important;
+}
+
+body[data-mode="custom"] .guided-only {
+  display: none !important;
+}
+
+.is-hidden {
+  display: none !important;
 }
 
 /* Form Elements */
@@ -191,6 +266,135 @@ input::placeholder {
   background: #f5f3ff;
 }
 
+/* History Sheet */
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 20;
+}
+
+.sheet-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.history-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+  padding: 20px 20px 28px;
+  transform: translateY(var(--sheet-translate, 100%));
+  transition: transform 0.25s ease;
+  z-index: 30;
+  max-height: 70vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.history-sheet.is-open {
+  --sheet-translate: 0px;
+}
+
+.sheet-handle {
+  width: 44px;
+  height: 5px;
+  border-radius: 999px;
+  background: #cbd5f5;
+  margin: 0 auto 12px;
+  touch-action: none;
+}
+
+.history-header {
+  touch-action: none;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.history-header h2 {
+  margin: 0 0 6px 0;
+  font-size: 20px;
+}
+
+.history-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.history-save-btn {
+  width: auto;
+  padding: 12px 18px;
+  font-size: 14px;
+  margin-top: 0;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.history-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: #f8fafc;
+}
+
+.history-item-title {
+  font-weight: 600;
+  margin: 0 0 4px 0;
+}
+
+.history-item-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.history-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.history-btn {
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--text-main);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.history-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
 /* Area Cards */
 #areasContainer {
   display: flex;
@@ -237,6 +441,11 @@ input::placeholder {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.card-actions {
+  display: inline-flex;
+  gap: 6px;
 }
 
 .area-details {
@@ -333,6 +542,15 @@ input::placeholder {
   .app-header h1 {
     font-size: 28px;
   }
+
+  .history-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .history-save-btn {
+    width: 100%;
+  }
 }
 
 /* Print Styles */
@@ -348,7 +566,9 @@ input::placeholder {
 
   .form-section,
   .print-btn,
-  .logo-icon {
+  .logo-icon,
+  .sheet-overlay,
+  .history-sheet {
     display: none !important;
   }
 

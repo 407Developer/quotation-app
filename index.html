@@ -22,35 +22,100 @@
       <div class="logo-icon">
         <i class="ph ph-receipt"></i>
       </div>
+      <button class="icon-btn" id="historyToggleBtn" type="button" aria-label="Open history">
+        <i class="ph ph-list"></i>
+      </button>
       <h1 id="quotationTitle">Quotation</h1>
       <p>Create clean, professional quotations in seconds</p>
     </header>
 
     <section class="form-section glass">
+      <div class="mode-toggle" id="modeToggle">
+        <button type="button" class="toggle-btn is-active" data-mode="guided">Guided</button>
+        <button type="button" class="toggle-btn" data-mode="custom">Custom</button>
+      </div>
       
       <div class="input-group">
         <label>Quotation Title / Client Name</label>
         <input type="text" id="userName" placeholder="e.g. Mr John Doe" />
       </div>
 
-      <div class="input-group">
-        <label>Place Name</label>
-        <input type="text" id="placeName" placeholder="Office, Bedroom, Parlour" />
-      </div>
-
-      <div class="row">
+      <div class="guided-only">
         <div class="input-group">
-          <label>Length (m)</label>
-          <input type="number" id="length" step="0.01" />
+          <label>Category</label>
+          <select id="guidedCategory">
+            <option value="flooring">Vinyl / SPC Flooring</option>
+            <option value="tiles">Ceramic Tiles (60x60)</option>
+            <option value="paint">Painting</option>
+            <option value="wallpaper">Wallpaper</option>
+          </select>
         </div>
 
         <div class="input-group">
-          <label>Breadth (m)</label>
-          <input type="number" id="breadth" step="0.01" />
+          <label>Place Name</label>
+          <input type="text" id="placeName" placeholder="Office, Bedroom, Parlour" />
         </div>
       </div>
 
-      <div class="row">
+      <div class="custom-only">
+        <div class="input-group">
+          <label>Item Name</label>
+          <input type="text" id="customName" placeholder="e.g. Door Handles" />
+        </div>
+      </div>
+
+      <div class="guided-only">
+        <div class="row" id="dimensionsRow">
+          <div class="input-group">
+            <label>Length (m)</label>
+            <input type="number" id="length" step="0.01" />
+          </div>
+
+          <div class="input-group">
+            <label>Breadth (m)</label>
+            <input type="number" id="breadth" step="0.01" />
+          </div>
+        </div>
+
+        <div class="row" id="areaRow">
+          <div class="input-group">
+            <label>Input Style</label>
+            <select id="inputStyle">
+              <option value="dimensions">Length × Breadth</option>
+              <option value="area">Direct Area</option>
+              <option value="quantity">Quantity</option>
+            </select>
+          </div>
+          <div class="input-group" id="areaGroup">
+            <label>Area (sqm)</label>
+            <input type="number" id="areaInput" step="0.01" />
+          </div>
+        </div>
+
+        <div class="row" id="quantityRow">
+          <div class="input-group">
+            <label>Quantity</label>
+            <input type="number" id="guidedQty" step="0.01" />
+          </div>
+          <div class="input-group">
+            <label>Unit</label>
+            <input type="text" id="guidedUnit" placeholder="pcs, rolls" />
+          </div>
+        </div>
+      </div>
+
+      <div class="row custom-only">
+        <div class="input-group">
+          <label>Quantity</label>
+          <input type="number" id="customQty" step="0.01" />
+        </div>
+        <div class="input-group">
+          <label>Unit</label>
+          <input type="text" id="customUnit" placeholder="pcs, bags, sqm" />
+        </div>
+      </div>
+
+      <div class="row guided-only" id="flooringExtras">
         <div class="input-group">
           <label>Number of Doors</label>
           <input type="number" id="doors" />
@@ -62,38 +127,84 @@
         </div>
       </div>
 
-      <div class="row">
+      <div class="row custom-only">
         <div class="input-group">
-          <label>Skirting</label>
-          <select id="skirtingNeeded">
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
+          <label>Unit Price</label>
+          <input type="number" id="customUnitPrice" />
         </div>
-
         <div class="input-group">
-          <label>Floor Type</label>
-          <select id="floorType">
-            <option value="vinyl">Vinyl</option>
-            <option value="spc">SPC</option>
-          </select>
+          <label>Notes</label>
+          <input type="text" id="customNotes" placeholder="Optional notes" />
         </div>
       </div>
 
-      <div class="row">
-        <div class="input-group">
-          <label>Floor Price</label>
-          <input type="number" id="price" />
+      <div id="flooringConfig" class="guided-only">
+        <div class="row">
+          <div class="input-group">
+            <label>Skirting</label>
+            <select id="skirtingNeeded">
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label>Floor Type</label>
+            <select id="floorType">
+              <option value="vinyl">Vinyl</option>
+              <option value="spc">SPC</option>
+            </select>
+          </div>
         </div>
 
-        <div class="input-group">
-          <label>Gum Price</label>
-          <input type="number" id="gumPrice" />
+        <div class="row">
+          <div class="input-group">
+            <label>Floor Price</label>
+            <input type="number" id="price" />
+          </div>
+
+          <div class="input-group">
+            <label>Gum Price</label>
+            <input type="number" id="gumPrice" />
+          </div>
         </div>
       </div>
 
-      <button class="primary-btn" onclick="addArea()">
-        <i class="ph ph-plus-circle" style="font-size: 20px; color: white;"></i> Add Area
+      <div class="row guided-only" id="tilesConfig">
+        <div class="input-group">
+          <label>Tile Price (per sqm)</label>
+          <input type="number" id="tilePrice" />
+        </div>
+        <div class="input-group">
+          <label>Tile Size (cm)</label>
+          <input type="number" id="tileSize" placeholder="60" />
+        </div>
+      </div>
+
+      <div class="row guided-only" id="paintConfig">
+        <div class="input-group">
+          <label>Paint Price (per sqm)</label>
+          <input type="number" id="paintPrice" />
+        </div>
+        <div class="input-group">
+          <label>Coats</label>
+          <input type="number" id="paintCoats" placeholder="2" />
+        </div>
+      </div>
+
+      <div class="row guided-only" id="wallpaperConfig">
+        <div class="input-group">
+          <label>Wallpaper Roll Price</label>
+          <input type="number" id="wallpaperPrice" />
+        </div>
+        <div class="input-group">
+          <label>Adhesive Price</label>
+          <input type="number" id="wallpaperGluePrice" />
+        </div>
+      </div>
+
+      <button class="primary-btn" id="addAreaBtn" type="button">
+        <i class="ph ph-plus-circle" style="font-size: 20px; color: white;"></i> Add Item
       </button>
 
     </section>
@@ -103,12 +214,27 @@
     <div class="total-card">
       <h2 id="grandTotal">Grand Total: ₦0</h2>
     </div>
-    <button class="print-btn" onclick="window.print()">
+    <button class="print-btn" id="printBtn" type="button">
       <i class="ph ph-printer"></i> Print Quotation
     </button>
 
   </main>
 
-  <script src="script.js"></script>
+  <div class="sheet-overlay" id="historyOverlay" aria-hidden="true"></div>
+  <section class="history-sheet" id="historySheet" aria-hidden="true">
+    <div class="sheet-handle" id="historyHandle" aria-hidden="true"></div>
+    <div class="history-header">
+      <div>
+        <h2>Saved Quotations</h2>
+        <p class="history-subtitle">Store and restore quotations on this device</p>
+      </div>
+      <button class="primary-btn history-save-btn" id="saveQuoteBtn" type="button">
+        <i class="ph ph-bookmark-simple"></i> Save Quotation
+      </button>
+    </div>
+    <ul id="historyList" class="history-list"></ul>
+  </section>
+
+  <script type="module" src="script.js"></script>
 </body>
 </html>
