@@ -35,26 +35,9 @@ function buildLinesMarkup(lines) {
 }
 
 export function buildAreaCard(item) {
-  const {
-    id,
-    placeName,
-    inputs: { floorType, skirtingNeeded },
-    calculated: {
-      floorArea,
-      floorSubtotal,
-      skirtingQty,
-      skirtingSubtotal,
-      fillerQty,
-      fillerSubtotal,
-      skirtingGumQty,
-      skirtingGumSubtotal,
-      floorGum,
-      floorGumSubtotal,
-      doorEndProfiles,
-      doorProfileSubtotal,
-      areaTotal,
-    },
-  } = item;
+  const { id, placeName } = item;
+  const lines = item.calculated?.lines || [];
+  const areaTotal = item.calculated?.areaTotal || 0;
 
   const card = document.createElement("div");
   card.className = "area-card";
@@ -80,48 +63,7 @@ export function buildAreaCard(item) {
     </div>
 
     <div class="area-details">
-      <div class="detail-row">
-        <span>Flooring (${floorType.toUpperCase()}) - ${floorArea.toFixed(2)} sqm</span>
-        <em>${fmtCurrency(floorSubtotal)}</em>
-      </div>
-  `;
-
-  if (skirtingNeeded === "yes") {
-    html += `
-      <div class="detail-row">
-        <span>Skirting (${skirtingQty} pcs)</span>
-        <em>${fmtCurrency(skirtingSubtotal)}</em>
-      </div>
-      <div class="detail-row">
-        <span>Filler (${fillerQty} bags)</span>
-        <em>${fmtCurrency(fillerSubtotal)}</em>
-      </div>
-      <div class="detail-row">
-        <span>Skirting Gum (${skirtingGumQty} pcs)</span>
-        <em>${fmtCurrency(skirtingGumSubtotal)}</em>
-      </div>
-    `;
-  }
-
-  if (floorType === "vinyl" && floorGum > 0) {
-    html += `
-      <div class="detail-row">
-        <span>Floor Gum (${floorGum} pcs)</span>
-        <em>${fmtCurrency(floorGumSubtotal)}</em>
-      </div>
-    `;
-  }
-
-  if (doorEndProfiles > 0) {
-    html += `
-      <div class="detail-row">
-        <span>Door Profiles (${doorEndProfiles} pcs)</span>
-        <em>${fmtCurrency(doorProfileSubtotal)}</em>
-      </div>
-    `;
-  }
-
-  html += `
+      ${buildLinesMarkup(lines)}
     </div>
     <div class="area-total">
       <span>Total</span>

@@ -6,6 +6,39 @@ export function applyOverrides(lines, overrides = {}) {
     if (typeof override === "number" && !Number.isNaN(override)) {
       return { ...line, subtotal: override };
     }
+    if (override && typeof override === "object") {
+      const overrideQty =
+        typeof override.qty === "number" && !Number.isNaN(override.qty) && override.qty >= 0
+          ? override.qty
+          : null;
+      const overrideUnitPrice =
+        typeof override.unitPrice === "number" &&
+        !Number.isNaN(override.unitPrice) &&
+        override.unitPrice >= 0
+          ? override.unitPrice
+          : null;
+      const overrideSubtotal =
+        typeof override.subtotal === "number" &&
+        !Number.isNaN(override.subtotal) &&
+        override.subtotal >= 0
+          ? override.subtotal
+          : null;
+
+      const baseQty =
+        typeof line.qty === "number" && !Number.isNaN(line.qty) && line.qty >= 0 ? line.qty : 0;
+      const baseSubtotal =
+        typeof line.subtotal === "number" && !Number.isNaN(line.subtotal) && line.subtotal >= 0
+          ? line.subtotal
+          : 0;
+      const baseUnitPrice = baseQty > 0 ? baseSubtotal / baseQty : 0;
+
+      const qty = overrideQty ?? baseQty;
+      const unitPrice =
+        overrideUnitPrice ??
+        (overrideSubtotal !== null ? (qty > 0 ? overrideSubtotal / qty : 0) : baseUnitPrice);
+      const subtotal = overrideSubtotal ?? qty * unitPrice;
+      return { ...line, qty, subtotal };
+    }
     return line;
   });
   const areaTotal = nextLines.reduce((sum, line) => sum + (line.subtotal || 0), 0);

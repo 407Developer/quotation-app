@@ -76,15 +76,26 @@ const flooringExtras = document.getElementById("flooringExtras");
 const tilesConfig = document.getElementById("tilesConfig");
 const paintConfig = document.getElementById("paintConfig");
 const wallpaperConfig = document.getElementById("wallpaperConfig");
+const lineEditorSection = document.getElementById("lineEditorSection");
+const lineEditorBody = document.getElementById("lineEditorBody");
+const lineEditorTotal = document.getElementById("lineEditorTotal");
+const lineEditorEmpty = document.getElementById("lineEditorEmpty");
+const formSection = document.querySelector(".form-section");
 
 let sheetDrag = null;
 let editingId = null;
+let draftOverrides = {};
 
 function setMode(mode) {
   document.body.dataset.mode = mode;
   modeToggle
     .querySelectorAll(".toggle-btn")
     .forEach((btn) => btn.classList.toggle("is-active", btn.dataset.mode === mode));
+  if (mode !== "guided") {
+    clearLineEditor();
+  } else {
+    refreshLineEditor();
+  }
 }
 
 function getMode() {
@@ -98,6 +109,7 @@ function setCategory(category) {
   tilesConfig.classList.toggle("is-hidden", category !== "tiles");
   paintConfig.classList.toggle("is-hidden", category !== "paint");
   wallpaperConfig.classList.toggle("is-hidden", category !== "wallpaper");
+  refreshLineEditor();
 }
 
 function setInputStyle(style) {
@@ -105,6 +117,7 @@ function setInputStyle(style) {
   dimensionsRow.classList.toggle("is-hidden", style !== "dimensions");
   areaGroup.classList.toggle("is-hidden", style !== "area");
   quantityRow.classList.toggle("is-hidden", style !== "quantity");
+  refreshLineEditor();
 }
 
 function readInputs() {
@@ -151,6 +164,8 @@ function clearInputs() {
   formEls.customUnit.value = "";
   formEls.customUnitPrice.value = "";
   formEls.customNotes.value = "";
+  draftOverrides = {};
+  clearLineEditor();
   if (getMode() === "custom") {
     formEls.customName.focus();
   } else {
@@ -248,16 +263,199 @@ function computeArea(inputs) {
   return { area, length: inputs.length, breadth: inputs.breadth };
 }
 
+function normalizeOverrides(overrides = {}) {
+  const normalized = {};
+  Object.entries(overrides).forEach(([key, value]) => {
+    if (typeof value === "number" && !Number.isNaN(value) && value >= 0) {
+      normalized[key] = { subtotal: value };
+      return;
+    }
+    if (!value || typeof value !== "object") return;
+
+    const next = {};
+    if (typeof value.qty === "number" && !Number.isNaN(value.qty) && value.qty >= 0) {
+      next.qty = value.qty;
+    }
+    if (
+      typeof value.unitPrice === "number" &&
+      !Number.isNaN(value.unitPrice) &&
+      value.unitPrice >= 0
+    ) {
+      next.unitPrice = value.unitPrice;
+    }
+    if (
+      typeof value.subtotal === "number" &&
+      !Number.isNaN(value.subtotal) &&
+      value.subtotal >= 0
+    ) {
+      next.subtotal = value.subtotal;
+    }
+    if (Object.keys(next).length > 0) {
+      normalized[key] = next;
+    }
+  });
+  return normalized;
+}
+
+function getOverrideSubtotal(override, fallback = 0) {
+  if (typeof override === "number" && !Number.isNaN(override)) return override;
+  if (
+    override &&
+    typeof override === "object" &&
+    typeof override.subtotal === "number" &&
+    !Number.isNaN(override.subtotal)
+  ) {
+    return override.subtotal;
+  }
+  return fallback;
+}
+
+function clearLineEditor() {
+  lineEditorSection.classList.add("is-hidden");
+  lineEditorBody.innerHTML = "";
+  lineEditorTotal.textContent = "₦0";
+  lineEditorEmpty.textContent = "Fill inputs above to preview editable items.";
+  lineEditorEmpty.classList.remove("is-hidden");
+}
+
+function pruneDraftOverrides(lines) {
+  const allowed = new Set(lines.map((line) => line.key));
+  Object.keys(draftOverrides).forEach((key) => {
+    if (!allowed.has(key)) {
+      delete draftOverrides[key];
+    }
+  });
+}
+
+function renderLineEditor(lines, message = "") {
+  lineEditorSection.classList.remove("is-hidden");
+  if (!lines.length) {
+    lineEditorBody.innerHTML = "";
+    lineEditorTotal.textContent = "₦0";
+    lineEditorEmpty.textContent = message || "Fill inputs above to preview editable items.";
+    lineEditorEmpty.classList.remove("is-hidden");
+    return;
+  }
+
+  lineEditorEmpty.classList.add("is-hidden");
+  lineEditorBody.innerHTML = lines
+    .map((line) => {
+      const qty = Number.isFinite(line.qty) && line.qty >= 0 ? line.qty : 0;
+      const subtotal = Number.isFinite(line.subtotal) && line.subtotal >= 0 ? line.subtotal : 0;
+      const unitPrice = qty > 0 ? subtotal / qty : 0;
+      return `
+      <div class="line-editor-row" data-key="${line.key}" data-subtotal="${subtotal}">
+        <div class="line-editor-label">
+          ${line.label}
+          <small>${line.unit}</small>
+        </div>
+        <input type="number" min="0" step="0.01" data-field="qty" value="${qty}" />
+        <input type="number" min="0" step="0.01" data-field="unitPrice" value="${unitPrice}" />
+        <div class="line-editor-subtotal">₦${subtotal.toLocaleString()}</div>
+      </div>
+    `;
+    })
+    .join("");
+  updateLineEditorTotal();
+}
+
+function updateLineEditorTotal() {
+  const rows = lineEditorBody.querySelectorAll(".line-editor-row");
+  const total = Array.from(rows).reduce((sum, row) => {
+    const subtotal = parseFloat(row.dataset.subtotal);
+    return sum + (Number.isNaN(subtotal) ? 0 : subtotal);
+  }, 0);
+  lineEditorTotal.textContent = `₦${total.toLocaleString()}`;
+}
+
+function computeGuidedDraft(inputs, overrides = {}) {
+  const { area, length, breadth } = computeArea(inputs);
+  if (!area || Number.isNaN(area) || area <= 0) return null;
+
+  const guidedInputs = { ...inputs, area, length, breadth };
+  const category = inputs.guidedCategory;
+
+  if (category === "flooring") {
+    const prices = getFlooringPrices({
+      floorType: guidedInputs.floorType,
+      floorPrice: guidedInputs.price,
+      gumPrice: guidedInputs.gumPrice,
+      doorProfilePrice: guidedInputs.doorProfilePrice,
+    });
+    return computeFlooring({
+      length: guidedInputs.length,
+      breadth: guidedInputs.breadth,
+      doors: guidedInputs.doors,
+      skirtingNeeded: guidedInputs.skirtingNeeded,
+      floorType: guidedInputs.floorType,
+      prices,
+      overrides,
+    });
+  }
+
+  if (category === "tiles") {
+    const prices = getTilePrices({ tilePrice: guidedInputs.tilePrice });
+    return computeTiles({
+      area: guidedInputs.area,
+      tileSizeCm: guidedInputs.tileSize,
+      prices,
+      overrides,
+    });
+  }
+
+  if (category === "paint") {
+    const prices = getPaintPrices({ paintPrice: guidedInputs.paintPrice });
+    return computePaint({
+      area: guidedInputs.area,
+      coats: guidedInputs.paintCoats,
+      prices,
+      overrides,
+    });
+  }
+
+  if (category === "wallpaper") {
+    const prices = getWallpaperPrices({
+      rollPrice: guidedInputs.wallpaperPrice,
+      adhesivePrice: guidedInputs.wallpaperGluePrice,
+    });
+    return computeWallpaper({
+      area: guidedInputs.area,
+      prices,
+      overrides,
+    });
+  }
+
+  return null;
+}
+
+function refreshLineEditor() {
+  if (getMode() !== "guided") {
+    clearLineEditor();
+    return;
+  }
+
+  const inputs = readInputs();
+  const calculated = computeGuidedDraft(inputs, draftOverrides);
+  if (!calculated) {
+    renderLineEditor([], "Fill valid measurement inputs to preview editable items.");
+    return;
+  }
+  const lines = calculated.lines || [];
+  pruneDraftOverrides(lines);
+  renderLineEditor(lines);
+}
+
 function addItemFromForm() {
   const mode = getMode();
   const inputs = readInputs();
   const existingItem = editingId
     ? getItems().find((entry) => entry.id === editingId)
     : null;
-  const overrides = existingItem?.overrides || {};
+  const existingOverrides = existingItem?.overrides || {};
 
   if (mode === "custom") {
     if (!validateCustomInputs(inputs)) return;
+    const overrides = existingOverrides;
     const item = buildCustomItem(inputs, overrides);
     let id = editingId;
     if (editingId) {
@@ -275,6 +473,10 @@ function addItemFromForm() {
   }
 
   if (!validateGuidedInputs(inputs, editingId)) return;
+  const overrides =
+    Object.keys(draftOverrides).length > 0
+      ? normalizeOverrides(draftOverrides)
+      : normalizeOverrides(existingOverrides);
 
   setTitle(inputs.userName);
 
@@ -381,12 +583,15 @@ function upsertCard(card) {
 
 function resetEditing() {
   editingId = null;
+  draftOverrides = {};
+  clearLineEditor();
   addAreaBtn.innerHTML =
     '<i class="ph ph-plus-circle" style="font-size: 20px; color: white;"></i> Add Item';
 }
 
 function startEditing(item) {
   editingId = item.id;
+  draftOverrides = normalizeOverrides(item.overrides || {});
   if (item.mode === "custom") {
     setMode("custom");
     formEls.customName.value = item.name || item.inputs.customName || "";
@@ -428,6 +633,7 @@ function startEditing(item) {
   addAreaBtn.innerHTML =
     '<i class="ph ph-check-circle" style="font-size: 20px; color: white;"></i> Update Item';
   formEls.placeName.focus();
+  refreshLineEditor();
 }
 
 function rebuildItem(item, overrides) {
@@ -501,10 +707,10 @@ function adjustItemLines(item) {
   const lines = item.calculated?.lines || [];
   if (!lines.length) return;
 
-  const nextOverrides = { ...(item.overrides || {}) };
+  const nextOverrides = normalizeOverrides(item.overrides || {});
 
   for (const line of lines) {
-    const current = nextOverrides[line.key] ?? line.subtotal;
+    const current = getOverrideSubtotal(nextOverrides[line.key], line.subtotal);
     const raw = prompt(
       `Override ${line.label} subtotal (current ₦${current.toLocaleString()}). Leave blank to reset.`,
       String(current)
@@ -520,7 +726,12 @@ function adjustItemLines(item) {
       alert("Invalid amount.");
       return;
     }
-    nextOverrides[line.key] = value;
+    const existing = nextOverrides[line.key];
+    if (existing && typeof existing === "object") {
+      nextOverrides[line.key] = { ...existing, subtotal: value };
+    } else {
+      nextOverrides[line.key] = { subtotal: value };
+    }
   }
 
   const rebuilt = rebuildItem(item, nextOverrides);
@@ -735,6 +946,37 @@ formEls.guidedCategory.addEventListener("change", (event) => {
 });
 formEls.inputStyle.addEventListener("change", (event) => {
   setInputStyle(event.target.value);
+});
+formSection.addEventListener("input", (event) => {
+  if (event.target.closest("#lineEditorSection")) return;
+  refreshLineEditor();
+});
+formSection.addEventListener("change", (event) => {
+  if (event.target.closest("#lineEditorSection")) return;
+  refreshLineEditor();
+});
+lineEditorBody.addEventListener("input", (event) => {
+  const input = event.target;
+  const row = input.closest(".line-editor-row");
+  if (!row) return;
+
+  const qtyInput = row.querySelector('input[data-field="qty"]');
+  const unitPriceInput = row.querySelector('input[data-field="unitPrice"]');
+  const qtyRaw = parseFloat(qtyInput.value);
+  const unitPriceRaw = parseFloat(unitPriceInput.value);
+  const qty = Number.isNaN(qtyRaw) || qtyRaw < 0 ? 0 : qtyRaw;
+  const unitPrice = Number.isNaN(unitPriceRaw) || unitPriceRaw < 0 ? 0 : unitPriceRaw;
+  const subtotal = qty * unitPrice;
+
+  row.dataset.subtotal = String(subtotal);
+  const subtotalEl = row.querySelector(".line-editor-subtotal");
+  if (subtotalEl) {
+    subtotalEl.textContent = `₦${subtotal.toLocaleString()}`;
+  }
+
+  const key = row.dataset.key;
+  draftOverrides[key] = { qty, unitPrice, subtotal };
+  updateLineEditorTotal();
 });
 
 areasContainer.addEventListener("click", (event) => {
