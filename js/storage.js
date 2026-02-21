@@ -1,3 +1,10 @@
+import {
+  apiListQuotations,
+  apiCreateQuotation,
+  apiDeleteQuotation as apiDelete,
+  apiUpdateQuotation,
+} from "./api.js";
+
 const STORAGE_KEY = "quotation-history";
 
 function readStorage() {
@@ -19,30 +26,61 @@ function writeStorage(list) {
 }
 
 export function loadSavedQuotations() {
-  return readStorage();
+  const token = localStorage.getItem("auth-token");
+  if (!token) {
+    return readStorage();
+  }
+  return apiListQuotations();
 }
 
-export function saveQuotation(quotation) {
-  const list = readStorage();
-  list.unshift(quotation);
-  writeStorage(list);
+export async function saveQuotation(quotation) {
+  const token = localStorage.getItem("auth-token");
+  if (!token) {
+    const list = readStorage();
+    list.unshift(quotation);
+    writeStorage(list);
+    return list;
+  }
+  const created = await apiCreateQuotation(quotation);
+  const list = await apiListQuotations();
   return list;
 }
 
-export function deleteQuotation(id) {
-  const list = readStorage().filter((item) => item.id !== id);
-  writeStorage(list);
+export async function deleteQuotation(id) {
+  const token = localStorage.getItem("auth-token");
+  if (!token) {
+    const list = readStorage().filter((item) => item.id !== id);
+    writeStorage(list);
+    return list;
+  }
+  await apiDelete(id);
+  const list = await apiListQuotations();
   return list;
 }
 
-export function renameQuotation(id, title) {
-  const list = readStorage().map((item) =>
-    item.id === id ? { ...item, title } : item
-  );
-  writeStorage(list);
+export async function renameQuotation(id, title) {
+  const token = localStorage.getItem("auth-token");
+  if (!token) {
+    const list = readStorage().map((item) =>
+      item.id === id ? { ...item, title } : item
+    );
+    writeStorage(list);
+    return list;
+  }
+  const all = await apiListQuotations();
+  const found = all.find((q) => String(q.id) === String(id));
+  if (!found) return all;
+  await apiUpdateQuotation(id, { ...found, title });
+  const list = await apiListQuotations();
   return list;
 }
 
 export function getQuotation(id) {
-  return readStorage().find((item) => item.id === id);
+  const token = localStorage.getItem("auth-token");
+  if (!token) {
+    return readStorage().find((item) => item.id === id);
+  }
+  // For online mode the full quotation is already in list; caller passes it directly.
+  return null;
 }
+

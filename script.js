@@ -10,7 +10,7 @@ import {
   getWallpaperRollCoverage,
   getWallpaperPrices,
 } from "./js/calc.js";
-import { buildCustomItem, buildFlooringItem, buildGuidedItem } from "./js/model.js";
+import { buildCustomItem, buildCustomItemFromLines, buildFlooringItem, buildGuidedItem } from "./js/model.js";
 import {
   addItem,
   getGrandTotal,
@@ -28,6 +28,7 @@ import {
   saveQuotation,
 } from "./js/storage.js";
 import { buildItemCard, setTitle, setTitleText, updateGrandTotal } from "./js/ui.js";
+import { apiLogin, apiRegister, setAuthToken, getAuthToken } from "./js/api.js";
 
 const formEls = {
   userName: document.getElementById("userName"),
@@ -81,10 +82,61 @@ const lineEditorBody = document.getElementById("lineEditorBody");
 const lineEditorTotal = document.getElementById("lineEditorTotal");
 const lineEditorEmpty = document.getElementById("lineEditorEmpty");
 const formSection = document.querySelector(".form-section");
+const authOverlay = document.getElementById("authOverlay");
+const authToggleBtn = document.getElementById("authToggleBtn");
+const authCloseBtn = document.getElementById("authCloseBtn");
+const authTabs = document.querySelectorAll(".auth-tab");
+const authForm = document.getElementById("authForm");
+const authEmail = document.getElementById("authEmail");
+const authPassword = document.getElementById("authPassword");
+const authName = document.getElementById("authName");
+const authError = document.getElementById("authError");
+const authSubmitLabel = document.getElementById("authSubmitLabel");
+const authLogoutBtn = document.getElementById("authLogoutBtn");
+const authUserLabel = document.getElementById("authUserLabel");
 
 let sheetDrag = null;
 let editingId = null;
 let draftOverrides = {};
+let customDraftLines = [];
+let authMode = "login";
+let currentUser = null;
+
+function setAuthState(user, token) {
+  currentUser = user || null;
+  if (token !== undefined) {
+    setAuthToken(token);
+  }
+  if (currentUser) {
+    authUserLabel.textContent = currentUser.name || currentUser.email || "Account";
+    authLogoutBtn.style.display = "inline-flex";
+  } else {
+    authUserLabel.textContent = "Sign in";
+    authLogoutBtn.style.display = "none";
+  }
+}
+
+function openAuthOverlay() {
+  authOverlay.classList.add("is-open");
+}
+
+function closeAuthOverlay() {
+  authOverlay.classList.remove("is-open");
+  authError.classList.add("is-hidden");
+}
+
+function setAuthMode(mode) {
+  authMode = mode;
+  authTabs.forEach((tab) => {
+    tab.classList.toggle("is-active", tab.dataset.mode === mode);
+  });
+  document
+    .querySelectorAll(".auth-fields")
+    .forEach((el) => {
+      el.classList.toggle("is-hidden", el.dataset.mode !== mode);
+    });
+  authSubmitLabel.textContent = mode === "login" ? "Login" : "Create account";
+}
 
 function setMode(mode) {
   document.body.dataset.mode = mode;
@@ -93,7 +145,9 @@ function setMode(mode) {
     .forEach((btn) => btn.classList.toggle("is-active", btn.dataset.mode === mode));
   if (mode !== "guided") {
     clearLineEditor();
+    renderCustomDraft();
   } else {
+    clearCustomDraft();
     refreshLineEditor();
   }
 }
@@ -445,6 +499,70 @@ function refreshLineEditor() {
   renderLineEditor(lines);
 }
 
+const customDraftBody = document.getElementById("customDraftBody");
+const customDraftEmpty = document.getElementById("customDraftEmpty");
+const customDraftTotal = document.getElementById("customDraftTotal");
+
+function clearCustomDraft() {
+  customDraftLines = [];
+  renderCustomDraft();
+}
+
+function renderCustomDraft() {
+  if (!customDraftBody) return;
+  customDraftEmpty.classList.toggle("is-hidden", customDraftLines.length > 0);
+  if (customDraftLines.length === 0) {
+    customDraftBody.innerHTML = "";
+    customDraftTotal.textContent = "₦0";
+    return;
+  }
+  customDraftBody.innerHTML = customDraftLines
+    .map(
+      (line, i) => `
+    <div class="line-editor-row custom-draft-row" data-index="${i}">
+      <div class="line-editor-label">
+        ${escapeHtml(line.name)}
+        <small>${line.qty} ${line.unit} × ₦${(line.unitPrice || 0).toLocaleString()}</small>
+      </div>
+      <div class="line-editor-subtotal">₦${(line.subtotal || 0).toLocaleString()}</div>
+      <button type="button" class="remove-btn custom-draft-remove" data-index="${i}" title="Remove line">
+        <i class="ph ph-trash" style="font-size: 16px;"></i>
+      </button>
+    </div>
+  `
+    )
+    .join("");
+  const total = customDraftLines.reduce((sum, l) => sum + (l.subtotal || 0), 0);
+  customDraftTotal.textContent = `₦${total.toLocaleString()}`;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function addLineToCustomDraft() {
+  const inputs = readInputs();
+  if (!validateCustomInputs(inputs)) return;
+  const subtotal = inputs.customQty * inputs.customUnitPrice;
+  customDraftLines.push({
+    name: inputs.customName,
+    qty: inputs.customQty,
+    unit: inputs.customUnit,
+    unitPrice: inputs.customUnitPrice,
+    notes: inputs.customNotes,
+    subtotal,
+  });
+  formEls.customName.value = "";
+  formEls.customQty.value = "";
+  formEls.customUnit.value = "";
+  formEls.customUnitPrice.value = "";
+  formEls.customNotes.value = "";
+  renderCustomDraft();
+  formEls.customName.focus();
+}
+
 function addItemFromForm() {
   const mode = getMode();
   const inputs = readInputs();
@@ -454,9 +572,15 @@ function addItemFromForm() {
   const existingOverrides = existingItem?.overrides || {};
 
   if (mode === "custom") {
-    if (!validateCustomInputs(inputs)) return;
-    const overrides = existingOverrides;
-    const item = buildCustomItem(inputs, overrides);
+    let item;
+    if (customDraftLines.length > 0) {
+      item = buildCustomItemFromLines(customDraftLines);
+      clearCustomDraft();
+    } else {
+      if (!validateCustomInputs(inputs)) return;
+      item = buildCustomItem(inputs, existingOverrides);
+    }
+    if (!item) return;
     let id = editingId;
     if (editingId) {
       updateItem(editingId, item);
@@ -584,6 +708,7 @@ function upsertCard(card) {
 function resetEditing() {
   editingId = null;
   draftOverrides = {};
+  clearCustomDraft();
   clearLineEditor();
   addAreaBtn.innerHTML =
     '<i class="ph ph-plus-circle" style="font-size: 20px; color: white;"></i> Add Item';
@@ -594,11 +719,25 @@ function startEditing(item) {
   draftOverrides = normalizeOverrides(item.overrides || {});
   if (item.mode === "custom") {
     setMode("custom");
-    formEls.customName.value = item.name || item.inputs.customName || "";
-    formEls.customQty.value = item.inputs.customQty || "";
-    formEls.customUnit.value = item.inputs.customUnit || "";
-    formEls.customUnitPrice.value = item.inputs.customUnitPrice || "";
-    formEls.customNotes.value = item.inputs.customNotes || "";
+    const draft = item.inputs.customDraftLines;
+    if (draft && Array.isArray(draft) && draft.length > 0) {
+      customDraftLines = draft.map((l) => ({
+        name: l.name,
+        qty: l.qty,
+        unit: l.unit,
+        unitPrice: l.unitPrice ?? (l.qty > 0 ? l.subtotal / l.qty : 0),
+        notes: l.notes || "",
+        subtotal: l.subtotal,
+      }));
+    } else {
+      customDraftLines = [];
+      formEls.customName.value = item.name || item.inputs.customName || "";
+      formEls.customQty.value = item.inputs.customQty || "";
+      formEls.customUnit.value = item.inputs.customUnit || "";
+      formEls.customUnitPrice.value = item.inputs.customUnitPrice || "";
+      formEls.customNotes.value = item.inputs.customNotes || "";
+    }
+    renderCustomDraft();
     addAreaBtn.innerHTML =
       '<i class="ph ph-check-circle" style="font-size: 20px; color: white;"></i> Update Item';
     formEls.customName.focus();
@@ -638,6 +777,10 @@ function startEditing(item) {
 
 function rebuildItem(item, overrides) {
   if (item.mode === "custom") {
+    const draft = item.inputs.customDraftLines;
+    if (draft && Array.isArray(draft) && draft.length > 0) {
+      return buildCustomItemFromLines(draft, overrides);
+    }
     return buildCustomItem(item.inputs, overrides);
   }
 
@@ -766,6 +909,16 @@ function renderAllItems(items) {
   });
 }
 
+function applyQuotationPayload(quote) {
+  if (!quote || !Array.isArray(quote.items)) return;
+  setItems(quote.items);
+  renderAllItems(quote.items);
+  updateGrandTotal(getGrandTotal());
+  setTitleText(quote.title);
+  clearInputs();
+  resetEditing();
+}
+
 function renderHistory(list) {
   historyList.innerHTML = "";
   if (list.length === 0) {
@@ -780,6 +933,11 @@ function renderHistory(list) {
     const li = document.createElement("li");
     li.className = "history-item";
     li.dataset.id = item.id;
+    try {
+      li.dataset.payload = encodeURIComponent(JSON.stringify(item));
+    } catch {
+      // ignore JSON errors and fall back to local load
+    }
 
     const date = new Date(item.dateISO);
     const meta = `${date.toLocaleDateString()} • ${item.items.length} items • ₦${item.total.toLocaleString()}`;
@@ -807,20 +965,20 @@ function handleSaveQuotation() {
   }
 
   const payload = buildQuotationPayload();
-  const list = saveQuotation(payload);
-  renderHistory(list);
+  Promise.resolve(saveQuotation(payload))
+    .then((list) => {
+      renderHistory(list);
+    })
+    .catch((error) => {
+      console.error("Failed to save quotation", error);
+      alert(error.message || "Failed to save quotation.");
+    });
 }
 
 function loadQuotation(id) {
   const quote = getQuotation(id);
   if (!quote) return;
-
-  setItems(quote.items);
-  renderAllItems(quote.items);
-  updateGrandTotal(getGrandTotal());
-  setTitleText(quote.title);
-  clearInputs();
-  resetEditing();
+  applyQuotationPayload(quote);
 }
 
 function handleHistoryAction(event) {
@@ -832,14 +990,30 @@ function handleHistoryAction(event) {
   const action = btn.dataset.action;
 
   if (action === "load") {
+    const encoded = item.dataset.payload;
+    if (encoded) {
+      try {
+        const quote = JSON.parse(decodeURIComponent(encoded));
+        applyQuotationPayload(quote);
+        return;
+      } catch {
+        // fall back to local-only path
+      }
+    }
     loadQuotation(id);
     return;
   }
 
   if (action === "delete") {
     if (!confirm("Delete this saved quotation?")) return;
-    const list = deleteQuotation(id);
-    renderHistory(list);
+    Promise.resolve(deleteQuotation(id))
+      .then((list) => {
+        renderHistory(list);
+      })
+      .catch((error) => {
+        console.error("Failed to delete quotation", error);
+        alert(error.message || "Failed to delete quotation.");
+      });
     return;
   }
 
@@ -848,8 +1022,14 @@ function handleHistoryAction(event) {
     if (!next) return;
     const trimmed = next.trim();
     if (!trimmed) return;
-    const list = renameQuotation(id, trimmed);
-    renderHistory(list);
+    Promise.resolve(renameQuotation(id, trimmed))
+      .then((list) => {
+        renderHistory(list);
+      })
+      .catch((error) => {
+        console.error("Failed to rename quotation", error);
+        alert(error.message || "Failed to rename quotation.");
+      });
   }
 }
 
@@ -928,6 +1108,22 @@ function handleSheetPointerUp(event) {
 }
 
 addAreaBtn.addEventListener("click", addItemFromForm);
+
+const addToCustomListBtn = document.getElementById("addToCustomListBtn");
+if (addToCustomListBtn) {
+  addToCustomListBtn.addEventListener("click", addLineToCustomDraft);
+}
+
+customDraftBody?.addEventListener("click", (event) => {
+  const btn = event.target.closest(".custom-draft-remove");
+  if (!btn) return;
+  const i = parseInt(btn.dataset.index, 10);
+  if (!Number.isNaN(i) && i >= 0 && i < customDraftLines.length) {
+    customDraftLines.splice(i, 1);
+    renderCustomDraft();
+  }
+});
+
 printBtn.addEventListener("click", () => window.print());
 saveQuoteBtn.addEventListener("click", handleSaveQuotation);
 historyToggleBtn.addEventListener("click", toggleHistorySheet);
@@ -1008,12 +1204,76 @@ historyList.addEventListener("click", handleHistoryAction);
 
 function init() {
   updateGrandTotal(getGrandTotal());
-  renderHistory(loadSavedQuotations());
+
+  // Restore auth if token exists (best-effort; user info is inferred from last login)
+  const token = getAuthToken();
+  if (token) {
+    setAuthState({ name: "Account" });
+  }
+
+  Promise.resolve(loadSavedQuotations())
+    .then((list) => {
+      renderHistory(list);
+    })
+    .catch((error) => {
+      console.error("Failed to load quotation history", error);
+    });
   closeHistorySheet();
   resetEditing();
   setMode("guided");
   setCategory(formEls.guidedCategory.value || "flooring");
   setInputStyle("dimensions");
 }
+
+authToggleBtn.addEventListener("click", () => {
+  if (currentUser) {
+    // Already logged in, just show dialog with logout option
+    openAuthOverlay();
+    return;
+  }
+  setAuthMode("login");
+  openAuthOverlay();
+});
+
+authCloseBtn.addEventListener("click", () => {
+  closeAuthOverlay();
+});
+
+authTabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    setAuthMode(tab.dataset.mode);
+  });
+});
+
+authForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  authError.classList.add("is-hidden");
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+  const name = authName.value.trim();
+
+  try {
+    if (authMode === "login") {
+      const { user } = await apiLogin({ email, password });
+      setAuthState(user);
+    } else {
+      const { user } = await apiRegister({ email, password, name });
+      setAuthState(user);
+    }
+    closeAuthOverlay();
+    // Reload history from backend once logged in
+    const list = await loadSavedQuotations();
+    renderHistory(list);
+  } catch (error) {
+    console.error("Auth error", error);
+    authError.textContent = error.message || "Authentication failed.";
+    authError.classList.remove("is-hidden");
+  }
+});
+
+authLogoutBtn.addEventListener("click", () => {
+  setAuthState(null, "");
+  closeAuthOverlay();
+});
 
 init();

@@ -60,3 +60,35 @@ export function buildCustomItem(inputs, overrides = {}) {
     overrides,
   };
 }
+
+/** Build a custom item from multiple draft lines (batch add) */
+export function buildCustomItemFromLines(draftLines, overrides = {}) {
+  if (!draftLines || draftLines.length === 0) return null;
+  const baseLines = draftLines.map((line, i) => ({
+    key: `custom-${i}`,
+    label: line.name,
+    qty: line.qty,
+    unit: line.unit,
+    subtotal: line.subtotal,
+  }));
+  const applied = applyOverrides(baseLines, overrides);
+  const firstName = draftLines[0]?.name || "Custom";
+  const displayName =
+    draftLines.length === 1 ? firstName : `${firstName} + ${draftLines.length - 1} more`;
+  const inputs = {
+    customName: firstName,
+    customQty: draftLines[0]?.qty,
+    customUnit: draftLines[0]?.unit,
+    customUnitPrice: draftLines[0]?.unitPrice,
+    customNotes: draftLines[0]?.notes,
+    customDraftLines: draftLines,
+  };
+  return {
+    kind: "custom",
+    mode: "custom",
+    name: displayName,
+    inputs,
+    calculated: { areaTotal: applied.areaTotal, lines: applied.lines },
+    overrides,
+  };
+}

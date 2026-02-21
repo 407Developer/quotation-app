@@ -22,6 +22,11 @@
       <div class="logo-icon">
         <i class="ph ph-receipt"></i>
       </div>
+      <div class="auth-chip" id="authChip">
+        <button type="button" id="authToggleBtn" class="auth-toggle-btn">
+          <span id="authUserLabel">Sign in</span>
+        </button>
+      </div>
       <button class="icon-btn" id="historyToggleBtn" type="button" aria-label="Open history">
         <i class="ph ph-list"></i>
       </button>
@@ -64,6 +69,21 @@
         </div>
       </div>
 
+      <div class="row guided-only" id="areaRow">
+        <div class="input-group">
+          <label>Input Style</label>
+          <select id="inputStyle">
+            <option value="dimensions">Length × Breadth</option>
+            <option value="area">Direct Area</option>
+            <option value="quantity">Quantity</option>
+          </select>
+        </div>
+        <div class="input-group" id="areaGroup">
+          <label>Area (sqm)</label>
+          <input type="number" id="areaInput" step="0.01" />
+        </div>
+      </div>
+
       <div class="guided-only">
         <div class="row" id="dimensionsRow">
           <div class="input-group">
@@ -77,20 +97,7 @@
           </div>
         </div>
 
-        <div class="row" id="areaRow">
-          <div class="input-group">
-            <label>Input Style</label>
-            <select id="inputStyle">
-              <option value="dimensions">Length × Breadth</option>
-              <option value="area">Direct Area</option>
-              <option value="quantity">Quantity</option>
-            </select>
-          </div>
-          <div class="input-group" id="areaGroup">
-            <label>Area (sqm)</label>
-            <input type="number" id="areaInput" step="0.01" />
-          </div>
-        </div>
+
 
         <div class="row" id="quantityRow">
           <div class="input-group">
@@ -136,6 +143,24 @@
           <label>Notes</label>
           <input type="text" id="customNotes" placeholder="Optional notes" />
         </div>
+      </div>
+
+      <div id="customDraftSection" class="custom-only line-editor">
+        <div class="line-editor-header">
+          <h3>Line Items</h3>
+          <p>Add multiple items to the list, then add them all at once.</p>
+        </div>
+        <p id="customDraftEmpty" class="line-editor-empty">
+          Fill the fields above and click "Add to list" to build your batch.
+        </p>
+        <div id="customDraftBody" class="line-editor-body"></div>
+        <div class="line-editor-total">
+          <span>Batch Total</span>
+          <strong id="customDraftTotal">₦0</strong>
+        </div>
+        <button type="button" class="secondary-btn" id="addToCustomListBtn">
+          <i class="ph ph-plus"></i> Add to list
+        </button>
       </div>
 
       <div id="flooringConfig" class="guided-only">
@@ -234,6 +259,45 @@
     </button>
 
   </main>
+
+  <div class="auth-overlay" id="authOverlay" aria-hidden="true">
+    <div class="auth-dialog">
+      <button type="button" class="auth-close-btn" id="authCloseBtn" aria-label="Close auth dialog">
+        <i class="ph ph-x"></i>
+      </button>
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab is-active" data-mode="login">Login</button>
+        <button type="button" class="auth-tab" data-mode="register">Register</button>
+      </div>
+      <form class="auth-form" id="authForm">
+        <div class="auth-fields" data-mode="login">
+          <div class="input-group">
+            <label>Email</label>
+            <input type="email" id="authEmail" placeholder="you@example.com" required />
+          </div>
+          <div class="input-group">
+            <label>Password</label>
+            <input type="password" id="authPassword" placeholder="••••••••" required />
+          </div>
+        </div>
+        <div class="auth-fields is-hidden" data-mode="register">
+          <div class="input-group">
+            <label>Full Name</label>
+            <input type="text" id="authName" placeholder="Jane Doe" />
+          </div>
+        </div>
+        <p class="auth-error is-hidden" id="authError"></p>
+        <button type="submit" class="primary-btn auth-submit-btn">
+          <i class="ph ph-lock-key"></i>
+          <span id="authSubmitLabel">Login</span>
+        </button>
+        <button type="button" class="auth-secondary-btn" id="authLogoutBtn">
+          <i class="ph ph-sign-out"></i>
+          <span>Logout</span>
+        </button>
+      </form>
+    </div>
+  </div>
 
   <div class="sheet-overlay" id="historyOverlay" aria-hidden="true"></div>
   <section class="history-sheet" id="historySheet" aria-hidden="true">
