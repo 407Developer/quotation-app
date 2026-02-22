@@ -139,9 +139,14 @@ export async function apiListQuotations() {
 export async function apiCreateQuotation(payload) {
   const client = ensureSupabase();
   const { title, dateISO, items, total } = payload || {};
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+  if (sessionError) throw new Error(sessionError.message || "Failed to read auth session");
+  const userId = sessionData?.session?.user?.id;
+  if (!userId) throw new Error("Login required to save quotations.");
   const { data, error } = await client
     .from("quotations")
     .insert({
+      user_id: userId,
       title: String(title || "").trim(),
       date_iso: dateISO || new Date().toISOString(),
       items_json: Array.isArray(items) ? items : [],
