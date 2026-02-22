@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offline | Quotation Maker</title>
+  <style>
+    :root {
+      color-scheme: light;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: Arial, sans-serif;
+      background: radial-gradient(circle at top, #e2e8f0, #f8fafc 55%);
+      color: #0f172a;
+    }
+    .card {
+      width: min(520px, 92vw);
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 1.35rem;
+    }
+    p {
+      margin: 0 0 14px;
+      line-height: 1.45;
+      color: #334155;
+    }
+    a {
+      display: inline-block;
+      margin-top: 6px;
+      text-decoration: none;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 10px 14px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>You are offline</h1>
+    <p>The app shell is available, but this page could not be loaded from the network.</p>
+    <p>Reconnect and try again, or return to the main quotation page.</p>
+    <a href="/index.html">Open Quotation Maker</a>
+  </div>
+</body>
+</html>

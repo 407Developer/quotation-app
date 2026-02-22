@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0f172a" />
+  <rect x="80" y="80" width="352" height="352" rx="64" fill="#1e293b" />
+  <rect x="138" y="126" width="236" height="260" rx="20" fill="#f8fafc" />
+  <rect x="168" y="172" width="176" height="14" rx="7" fill="#cbd5e1" />
+  <rect x="168" y="204" width="176" height="14" rx="7" fill="#cbd5e1" />
+  <rect x="168" y="236" width="120" height="14" rx="7" fill="#cbd5e1" />
+  <rect x="168" y="290" width="176" height="58" rx="14" fill="#0ea5e9" />
+  <text x="256" y="329" text-anchor="middle" font-size="30" font-family="Arial, sans-serif" fill="#ffffff">Q</text>
+</svg>
