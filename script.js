@@ -101,6 +101,7 @@ let draftOverrides = {};
 let customDraftLines = [];
 let authMode = "login";
 let currentUser = null;
+let authLastFocused = null;
 const DEFAULT_COMPANY_PROFILE = {
   name: "Your Company Name",
   address: "123 Business Street, City",
@@ -123,12 +124,24 @@ function setAuthState(user, token) {
 }
 
 function openAuthOverlay() {
+  authLastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  authOverlay.setAttribute("aria-hidden", "false");
   authOverlay.classList.add("is-open");
+  const focusTarget = authMode === "register" ? authName : authEmail;
+  requestAnimationFrame(() => focusTarget?.focus());
 }
 
 function closeAuthOverlay() {
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && authOverlay.contains(active)) {
+    active.blur();
+  }
   authOverlay.classList.remove("is-open");
+  authOverlay.setAttribute("aria-hidden", "true");
   authError.classList.add("is-hidden");
+  if (authLastFocused && typeof authLastFocused.focus === "function") {
+    authLastFocused.focus();
+  }
 }
 
 function setAuthMode(mode) {

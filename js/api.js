@@ -41,10 +41,18 @@ async function request(path, options = {}) {
   }
 
   const url = API_BASE ? `${API_BASE}${path}` : path;
-  const res = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (error) {
+    const hintBase = API_BASE || window.location.origin;
+    throw new Error(
+      `Cannot reach API server (${hintBase}). Start backend and confirm API base configuration.`
+    );
+  }
 
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
