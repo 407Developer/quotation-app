@@ -67,6 +67,12 @@ const formEls = {
 const areasContainer = document.getElementById("areasContainer");
 const addAreaBtn = document.getElementById("addAreaBtn");
 const printBtn = document.getElementById("printBtn");
+const printHeader = document.getElementById("printHeader");
+const printCompanyName = document.getElementById("printCompanyName");
+const printCompanyMeta = document.getElementById("printCompanyMeta");
+const printQuoteTitle = document.getElementById("printQuoteTitle");
+const printQuoteDate = document.getElementById("printQuoteDate");
+const printQuoteTotal = document.getElementById("printQuoteTotal");
 const saveQuoteBtn = document.getElementById("saveQuoteBtn");
 const historyList = document.getElementById("historyList");
 const historyToggleBtn = document.getElementById("historyToggleBtn");
@@ -997,6 +1003,22 @@ function getCompanyProfile() {
   }
 }
 
+function updatePrintHeader() {
+  if (!printHeader) return;
+  const company = getCompanyProfile();
+  const payload = buildQuotationPayload();
+  const date = new Date(payload.dateISO);
+  printCompanyName.textContent = company.name || "Company Name";
+  const metaParts = [company.address, company.phone, company.email].filter(Boolean);
+  printCompanyMeta.textContent = metaParts.join(" • ");
+  printQuoteTitle.textContent = payload.title || "Quotation";
+  printQuoteDate.textContent = Number.isNaN(date.getTime())
+    ? new Date().toLocaleDateString()
+    : date.toLocaleDateString();
+  printQuoteTotal.textContent = `₦${(payload.total || 0).toLocaleString()}`;
+  printHeader.setAttribute("aria-hidden", "false");
+}
+
 function getReceiptQuoteFromHistoryItem(item) {
   const encoded = item.dataset.payload;
   if (encoded) {
@@ -1328,7 +1350,10 @@ customDraftBody?.addEventListener("click", (event) => {
   }
 });
 
-printBtn.addEventListener("click", () => window.print());
+printBtn.addEventListener("click", () => {
+  updatePrintHeader();
+  window.print();
+});
 saveQuoteBtn.addEventListener("click", handleSaveQuotation);
 historyToggleBtn.addEventListener("click", toggleHistorySheet);
 historyOverlay.addEventListener("click", closeHistorySheet);
