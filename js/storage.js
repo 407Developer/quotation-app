@@ -3,6 +3,7 @@ import {
   apiCreateQuotation,
   apiDeleteQuotation as apiDelete,
   apiUpdateQuotation,
+  isAuthenticated,
 } from "./api.js";
 
 const STORAGE_KEY = "quotation-history";
@@ -25,17 +26,17 @@ function writeStorage(list) {
   }
 }
 
-export function loadSavedQuotations() {
-  const token = localStorage.getItem("auth-token");
-  if (!token) {
+export async function loadSavedQuotations() {
+  const authed = await isAuthenticated().catch(() => false);
+  if (!authed) {
     return readStorage();
   }
   return apiListQuotations();
 }
 
 export async function saveQuotation(quotation) {
-  const token = localStorage.getItem("auth-token");
-  if (!token) {
+  const authed = await isAuthenticated().catch(() => false);
+  if (!authed) {
     const list = readStorage();
     list.unshift(quotation);
     writeStorage(list);
@@ -47,8 +48,8 @@ export async function saveQuotation(quotation) {
 }
 
 export async function deleteQuotation(id) {
-  const token = localStorage.getItem("auth-token");
-  if (!token) {
+  const authed = await isAuthenticated().catch(() => false);
+  if (!authed) {
     const list = readStorage().filter((item) => item.id !== id);
     writeStorage(list);
     return list;
@@ -59,8 +60,8 @@ export async function deleteQuotation(id) {
 }
 
 export async function renameQuotation(id, title) {
-  const token = localStorage.getItem("auth-token");
-  if (!token) {
+  const authed = await isAuthenticated().catch(() => false);
+  if (!authed) {
     const list = readStorage().map((item) =>
       item.id === id ? { ...item, title } : item
     );
@@ -76,11 +77,5 @@ export async function renameQuotation(id, title) {
 }
 
 export function getQuotation(id) {
-  const token = localStorage.getItem("auth-token");
-  if (!token) {
-    return readStorage().find((item) => item.id === id);
-  }
-  // For online mode the full quotation is already in list; caller passes it directly.
-  return null;
+  return readStorage().find((item) => item.id === id);
 }
-

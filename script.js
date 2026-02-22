@@ -28,7 +28,12 @@ import {
   saveQuotation,
 } from "./js/storage.js";
 import { buildItemCard, setTitle, setTitleText, updateGrandTotal } from "./js/ui.js";
-import { apiLogin, apiRegister, setAuthToken, getAuthToken } from "./js/api.js";
+import {
+  apiLogin,
+  apiRegister,
+  apiLogout,
+  getCurrentUser,
+} from "./js/api.js";
 
 const formEls = {
   userName: document.getElementById("userName"),
@@ -109,11 +114,8 @@ const DEFAULT_COMPANY_PROFILE = {
   email: "sales@yourcompany.com",
 };
 
-function setAuthState(user, token) {
+function setAuthState(user) {
   currentUser = user || null;
-  if (token !== undefined) {
-    setAuthToken(token);
-  }
   if (currentUser) {
     authUserLabel.textContent = currentUser.name || currentUser.email || "Account";
     authLogoutBtn.style.display = "inline-flex";
@@ -1407,11 +1409,14 @@ historyList.addEventListener("click", handleHistoryAction);
 function init() {
   updateGrandTotal(getGrandTotal());
 
-  // Restore auth if token exists (best-effort; user info is inferred from last login)
-  const token = getAuthToken();
-  if (token) {
-    setAuthState({ name: "Account" });
-  }
+  // Restore auth if session exists
+  getCurrentUser()
+    .then((user) => {
+      if (user) setAuthState(user);
+    })
+    .catch((error) => {
+      console.warn("Failed to restore auth session", error);
+    });
 
   Promise.resolve(loadSavedQuotations())
     .then((list) => {
@@ -1459,7 +1464,13 @@ authForm.addEventListener("submit", async (event) => {
       const { user } = await apiLogin({ email, password });
       setAuthState(user);
     } else {
-      const { user } = await apiRegister({ email, password, name });
+      const { user, needsEmailConfirmation } = await apiRegister({ email, password, name });
+      if (needsEmailConfirmation) {
+        authError.textContent =
+          "Check your email to confirm your account, then log in.";
+        authError.classList.remove("is-hidden");
+        return;
+      }
       setAuthState(user);
     }
     closeAuthOverlay();
@@ -1474,14 +1485,20 @@ authForm.addEventListener("submit", async (event) => {
 });
 
 authLogoutBtn.addEventListener("click", () => {
-  setAuthState(null, "");
-  closeAuthOverlay();
-  Promise.resolve(loadSavedQuotations())
-    .then((list) => {
-      renderHistory(list);
-    })
+  Promise.resolve(apiLogout())
     .catch((error) => {
-      console.error("Failed to reload history after logout", error);
+      console.error("Failed to logout", error);
+    })
+    .finally(() => {
+      setAuthState(null);
+      closeAuthOverlay();
+      Promise.resolve(loadSavedQuotations())
+        .then((list) => {
+          renderHistory(list);
+        })
+        .catch((error) => {
+          console.error("Failed to reload history after logout", error);
+        });
     });
 });
 
