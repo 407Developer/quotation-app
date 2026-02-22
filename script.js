@@ -101,6 +101,12 @@ let draftOverrides = {};
 let customDraftLines = [];
 let authMode = "login";
 let currentUser = null;
+const DEFAULT_COMPANY_PROFILE = {
+  name: "Your Company Name",
+  address: "123 Business Street, City",
+  phone: "+234 800 000 0000",
+  email: "sales@yourcompany.com",
+};
 
 function setAuthState(user, token) {
   currentUser = user || null;
@@ -131,10 +137,11 @@ function setAuthMode(mode) {
     tab.classList.toggle("is-active", tab.dataset.mode === mode);
   });
   document
-    .querySelectorAll(".auth-fields")
+    .querySelectorAll(".auth-fields[data-mode]")
     .forEach((el) => {
       el.classList.toggle("is-hidden", el.dataset.mode !== mode);
     });
+  authName.required = mode === "register";
   authSubmitLabel.textContent = mode === "login" ? "Login" : "Create account";
 }
 
@@ -949,6 +956,7 @@ function renderHistory(list) {
       </div>
       <div class="history-actions">
         <button class="history-btn" data-action="load">Load</button>
+        <button class="history-btn" data-action="receipt">Receipt PDF</button>
         <button class="history-btn" data-action="rename">Rename</button>
         <button class="history-btn" data-action="delete">Delete</button>
       </div>
@@ -956,6 +964,177 @@ function renderHistory(list) {
 
     historyList.appendChild(li);
   });
+}
+
+function getCompanyProfile() {
+  try {
+    const raw = localStorage.getItem("company-profile");
+    if (!raw) return DEFAULT_COMPANY_PROFILE;
+    const parsed = JSON.parse(raw);
+    return {
+      name: parsed.name || DEFAULT_COMPANY_PROFILE.name,
+      address: parsed.address || DEFAULT_COMPANY_PROFILE.address,
+      phone: parsed.phone || DEFAULT_COMPANY_PROFILE.phone,
+      email: parsed.email || DEFAULT_COMPANY_PROFILE.email,
+    };
+  } catch {
+    return DEFAULT_COMPANY_PROFILE;
+  }
+}
+
+function getReceiptQuoteFromHistoryItem(item) {
+  const encoded = item.dataset.payload;
+  if (encoded) {
+    try {
+      return JSON.parse(decodeURIComponent(encoded));
+    } catch {
+      // fall back below
+    }
+  }
+  const id = item.dataset.id;
+  return getQuotation(id);
+}
+
+function drawReceiptTable(doc, quote, startY) {
+  const rows = [];
+  (quote.items || []).forEach((quoteItem) => {
+    const title = quoteItem.placeName || quoteItem.name || quoteItem.kind || "Item";
+    rows.push({
+      desc: title,
+      qty: "",
+      unitPrice: "",
+      amount: "",
+      isGroup: true,
+    });
+    const lines = quoteItem.calculated?.lines || [];
+    lines.forEach((line) => {
+      const qty = Number(line.qty || 0);
+      const subtotal = Number(line.subtotal || 0);
+      const unitPrice = qty > 0 ? subtotal / qty : subtotal;
+      rows.push({
+        desc: line.label || "Line item",
+        qty: `${qty.toLocaleString()} ${line.unit || ""}`.trim(),
+        unitPrice,
+        amount: subtotal,
+        isGroup: false,
+      });
+    });
+  });
+
+  const margin = 14;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const col = {
+    desc: margin,
+    qty: margin + 95,
+    unitPrice: margin + 128,
+    amount: margin + 162,
+  };
+  const lineHeight = 6;
+  let y = startY;
+
+  doc.setFillColor(20, 30, 70);
+  doc.rect(margin, y, pageWidth - margin * 2, 8, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  doc.text("DESCRIPTION", col.desc + 1, y + 5.5);
+  doc.text("QTY", col.qty + 1, y + 5.5);
+  doc.text("UNIT", col.unitPrice + 1, y + 5.5);
+  doc.text("AMOUNT", col.amount + 1, y + 5.5);
+  y += 10;
+
+  doc.setTextColor(33, 37, 41);
+
+  rows.forEach((row) => {
+    const pageHeight = doc.internal.pageSize.getHeight();
+    if (y > pageHeight - 22) {
+      doc.addPage();
+      y = 18;
+    }
+
+    if (row.isGroup) {
+      doc.setFillColor(242, 244, 248);
+      doc.rect(margin, y - 4.5, pageWidth - margin * 2, 6, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(String(row.desc), col.desc + 1, y);
+      doc.setFont("helvetica", "normal");
+      y += lineHeight;
+      return;
+    }
+
+    doc.setFontSize(9.5);
+    doc.text(String(row.desc), col.desc + 1, y);
+    doc.text(String(row.qty), col.qty + 1, y);
+    doc.text(`N${Math.round(row.unitPrice).toLocaleString()}`, col.unitPrice + 1, y);
+    doc.text(`N${Math.round(row.amount).toLocaleString()}`, col.amount + 1, y);
+    y += lineHeight;
+  });
+
+  return y;
+}
+
+function generateReceiptPdf(quote) {
+  const jsPdfNs = window.jspdf;
+  const jsPDF = jsPdfNs?.jsPDF;
+  if (!jsPDF) {
+    alert("PDF engine failed to load. Refresh and try again.");
+    return;
+  }
+  if (!quote || !Array.isArray(quote.items) || quote.items.length === 0) {
+    alert("No quotation data available for receipt.");
+    return;
+  }
+
+  const company = getCompanyProfile();
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 14;
+  let y = 16;
+
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, pageWidth, 34, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text(company.name, margin, 13);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text(company.address, margin, 20);
+  doc.text(`Phone: ${company.phone}  |  Email: ${company.email}`, margin, 26);
+
+  y = 42;
+  doc.setTextColor(33, 37, 41);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.text("SALES RECEIPT", margin, y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  y += 8;
+  const dateLabel = new Date(quote.dateISO || Date.now()).toLocaleString();
+  doc.text(`Receipt Date: ${dateLabel}`, margin, y);
+  doc.text(`Ref: ${quote.id}`, margin + 90, y);
+  y += 6;
+  doc.text(`Customer: ${String(quote.title || "Walk-in customer").replace(/^Quotation for\s*/i, "")}`, margin, y);
+  y += 8;
+
+  y = drawReceiptTable(doc, quote, y);
+  y += 6;
+
+  const total = Number(quote.total || 0);
+  doc.setFillColor(15, 23, 42);
+  doc.rect(pageWidth - 74, y, 60, 11, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text(`TOTAL: N${Math.round(total).toLocaleString()}`, pageWidth - 70, y + 7);
+
+  doc.setTextColor(100, 116, 139);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.text("Generated from Quotation App", margin, doc.internal.pageSize.getHeight() - 8);
+
+  const safeRef = String(quote.id || Date.now()).replace(/[^a-zA-Z0-9-_]/g, "");
+  doc.save(`receipt-${safeRef}.pdf`);
 }
 
 function handleSaveQuotation() {
@@ -1001,6 +1180,16 @@ function handleHistoryAction(event) {
       }
     }
     loadQuotation(id);
+    return;
+  }
+
+  if (action === "receipt") {
+    const quote = getReceiptQuoteFromHistoryItem(item);
+    if (!quote) {
+      alert("Unable to build receipt for this entry.");
+      return;
+    }
+    generateReceiptPdf(quote);
     return;
   }
 
@@ -1274,6 +1463,13 @@ authForm.addEventListener("submit", async (event) => {
 authLogoutBtn.addEventListener("click", () => {
   setAuthState(null, "");
   closeAuthOverlay();
+  Promise.resolve(loadSavedQuotations())
+    .then((list) => {
+      renderHistory(list);
+    })
+    .catch((error) => {
+      console.error("Failed to reload history after logout", error);
+    });
 });
 
 init();

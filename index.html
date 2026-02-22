@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="api-base" content="" />
   <title>Quotation Maker</title>
 
   <!-- Modern font -->
@@ -270,7 +271,7 @@
         <button type="button" class="auth-tab" data-mode="register">Register</button>
       </div>
       <form class="auth-form" id="authForm">
-        <div class="auth-fields" data-mode="login">
+        <div class="auth-fields">
           <div class="input-group">
             <label>Email</label>
             <input type="email" id="authEmail" placeholder="you@example.com" required />
@@ -314,6 +315,7 @@
     <ul id="historyList" class="history-list"></ul>
   </section>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script type="module" src="script.js"></script>
 </body>
 </html>

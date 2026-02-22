@@ -1,4 +1,15 @@
-const API_BASE = import.meta?.env?.VITE_API_BASE || "http://localhost:4000";
+function resolveApiBase() {
+  const fromWindow = window.__API_BASE__;
+  const fromMeta = document.querySelector('meta[name="api-base"]')?.content?.trim();
+  if (fromWindow) return String(fromWindow).trim();
+  if (fromMeta) return fromMeta;
+  if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+    return "http://localhost:4000";
+  }
+  return "";
+}
+
+const API_BASE = resolveApiBase();
 
 let authToken = null;
 
@@ -29,7 +40,8 @@ async function request(path, options = {}) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const url = API_BASE ? `${API_BASE}${path}` : path;
+  const res = await fetch(url, {
     ...options,
     headers,
   });
@@ -84,4 +96,3 @@ export async function apiUpdateQuotation(id, payload) {
 export async function apiDeleteQuotation(id) {
   await request(`/api/quotations/${id}`, { method: "DELETE" });
 }
-
