@@ -1,4 +1,4 @@
-const CACHE_NAME = "quotation-app-v3";
+const CACHE_NAME = "quotation-app-v4";
 const ASSETS = [
   "/",
   "/index.html",
@@ -52,6 +52,24 @@ self.addEventListener("fetch", (event) => {
         .catch(async () => {
           const cached = await caches.match(request);
           return cached || caches.match("/offline.html") || caches.match("/index.html");
+        })
+    );
+    return;
+  }
+
+  // Keep app code fresh during development/deploys.
+  if (request.destination === "script" || request.destination === "style") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(request);
+          if (cached) return cached;
+          throw new Error("Resource unavailable offline");
         })
     );
     return;

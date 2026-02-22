@@ -1,106 +1,179 @@
-function resolveApiBase() {
-  const fromWindow = window.__API_BASE__;
-  const fromMeta = document.querySelector('meta[name="api-base"]')?.content?.trim();
-  if (fromWindow) return String(fromWindow).trim();
-  if (fromMeta) return fromMeta;
-  if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-    return "http://localhost:4000";
-  }
-  return "";
+function readMeta(name) {
+  return document.querySelector(`meta[name="${name}"]`)?.content?.trim() || "";
 }
 
-const API_BASE = resolveApiBase();
+function resolveSupabaseConfig() {
+  const url = window.__SUPABASE_URL__ || readMeta("supabase-url");
+  const anonKey = window.__SUPABASE_ANON_KEY__ || readMeta("supabase-anon-key");
+  return {
+    url: String(url || "").trim(),
+    anonKey: String(anonKey || "").trim(),
+  };
+}
+
+function requireSupabaseGlobal() {
+  const globalNs = window.supabase;
+  if (!globalNs?.createClient) {
+    throw new Error("Supabase client SDK not loaded.");
+  }
+  return globalNs;
+}
+
+const cfg = resolveSupabaseConfig();
+const supabase =
+  cfg.url && cfg.anonKey
+    ? requireSupabaseGlobal().createClient(cfg.url, cfg.anonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+      })
+    : null;
 
 let authToken = null;
 
-export function setAuthToken(token) {
-  authToken = token;
-  if (token) {
-    localStorage.setItem("auth-token", token);
-  } else {
-    localStorage.removeItem("auth-token");
+function ensureSupabase() {
+  if (!supabase) {
+    throw new Error("Supabase is not configured. Add supabase-url and supabase-anon-key.");
   }
+  return supabase;
+}
+
+function mapUser(user, fallbackName = "") {
+  if (!user) return null;
+  return {
+    id: user.id,
+    email: user.email || "",
+    name: user.user_metadata?.name || fallbackName || "",
+  };
+}
+
+function mapQuotationRow(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    dateISO: row.date_iso,
+    items: row.items_json,
+    total: row.total,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function setAuthToken(token) {
+  authToken = token || null;
 }
 
 export function getAuthToken() {
-  if (authToken) return authToken;
-  const stored = localStorage.getItem("auth-token");
-  if (stored) {
-    authToken = stored;
-  }
   return authToken;
 }
 
-async function request(path, options = {}) {
-  const headers = new Headers(options.headers || {});
-  headers.set("Content-Type", "application/json");
+export async function getCurrentUser() {
+  const client = ensureSupabase();
+  const { data, error } = await client.auth.getSession();
+  if (error) throw new Error(error.message || "Failed to read auth session");
+  const session = data?.session || null;
+  setAuthToken(session?.access_token || "");
+  return mapUser(session?.user || null);
+}
 
-  const token = getAuthToken();
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-
-  const url = API_BASE ? `${API_BASE}${path}` : path;
-  let res;
-  try {
-    res = await fetch(url, {
-      ...options,
-      headers,
-    });
-  } catch (error) {
-    const hintBase = API_BASE || window.location.origin;
-    throw new Error(
-      `Cannot reach API server (${hintBase}). Start backend and confirm API base configuration.`
-    );
-  }
-
-  const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
-
-  if (!res.ok) {
-    const message = data?.error || res.statusText || "Request failed";
-    throw new Error(message);
-  }
-
-  return data;
+export async function isAuthenticated() {
+  const user = await getCurrentUser();
+  return !!user;
 }
 
 export async function apiRegister(payload) {
-  const data = await request("/api/auth/register", {
-    method: "POST",
-    body: JSON.stringify(payload),
+  const client = ensureSupabase();
+  const { email, password, name } = payload || {};
+  const { data, error } = await client.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { name: name || "" },
+    },
   });
-  setAuthToken(data.token);
-  return data;
+  if (error) throw new Error(error.message || "Failed to register");
+
+  const session = data?.session || null;
+  const user = data?.user || session?.user || null;
+  setAuthToken(session?.access_token || "");
+  return {
+    user: mapUser(user, name),
+    token: session?.access_token || "",
+    needsEmailConfirmation: !session,
+  };
 }
 
 export async function apiLogin(payload) {
-  const data = await request("/api/auth/login", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-  setAuthToken(data.token);
-  return data;
+  const client = ensureSupabase();
+  const { email, password } = payload || {};
+  const { data, error } = await client.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(error.message || "Failed to login");
+  const session = data?.session || null;
+  const user = data?.user || session?.user || null;
+  setAuthToken(session?.access_token || "");
+  return {
+    user: mapUser(user),
+    token: session?.access_token || "",
+  };
+}
+
+export async function apiLogout() {
+  const client = ensureSupabase();
+  const { error } = await client.auth.signOut();
+  if (error) throw new Error(error.message || "Failed to logout");
+  setAuthToken("");
 }
 
 export async function apiListQuotations() {
-  return request("/api/quotations");
+  const client = ensureSupabase();
+  const { data, error } = await client
+    .from("quotations")
+    .select("id,title,date_iso,items_json,total,created_at,updated_at")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message || "Failed to load quotations");
+  return (data || []).map(mapQuotationRow);
 }
 
 export async function apiCreateQuotation(payload) {
-  return request("/api/quotations", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  const client = ensureSupabase();
+  const { title, dateISO, items, total } = payload || {};
+  const { data, error } = await client
+    .from("quotations")
+    .insert({
+      title: String(title || "").trim(),
+      date_iso: dateISO || new Date().toISOString(),
+      items_json: Array.isArray(items) ? items : [],
+      total: Number.isFinite(Number(total)) ? Math.round(Number(total)) : 0,
+    })
+    .select("id,title,date_iso,items_json,total,created_at,updated_at")
+    .single();
+  if (error) throw new Error(error.message || "Failed to create quotation");
+  return mapQuotationRow(data);
 }
 
 export async function apiUpdateQuotation(id, payload) {
-  return request(`/api/quotations/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
+  const client = ensureSupabase();
+  const { title, dateISO, items, total } = payload || {};
+  const { data, error } = await client
+    .from("quotations")
+    .update({
+      title: String(title || "").trim(),
+      date_iso: dateISO || new Date().toISOString(),
+      items_json: Array.isArray(items) ? items : [],
+      total: Number.isFinite(Number(total)) ? Math.round(Number(total)) : 0,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select("id,title,date_iso,items_json,total,created_at,updated_at")
+    .single();
+  if (error) throw new Error(error.message || "Failed to update quotation");
+  return mapQuotationRow(data);
 }
 
 export async function apiDeleteQuotation(id) {
-  await request(`/api/quotations/${id}`, { method: "DELETE" });
+  const client = ensureSupabase();
+  const { error } = await client.from("quotations").delete().eq("id", id);
+  if (error) throw new Error(error.message || "Failed to delete quotation");
 }
