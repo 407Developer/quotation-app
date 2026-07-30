@@ -1,5 +1,10 @@
 import Handlebars from "handlebars";
 
+Handlebars.registerHelper("fmt", (n: unknown) => {
+  if (typeof n !== "number") return n;
+  return n.toLocaleString("en-US");
+});
+
 export const PDF_TEMPLATE = `<!DOCTYPE html>
 <html>
 <head>
@@ -198,16 +203,16 @@ export const PDF_TEMPLATE = `<!DOCTYPE html>
             {{#each items}}
             <tr>
                 <td class="bold">{{description}}</td>
-                <td class="num">{{qty}}</td>
+                <td class="num">{{fmt qty}}</td>
                 <td class="num">{{unit}}</td>
-                <td class="num">₦{{rate}}</td>
-                <td class="num bold">₦{{amount}}</td>
+                <td class="num">₦{{fmt rate}}</td>
+                <td class="num bold">₦{{fmt amount}}</td>
             </tr>
             {{/each}}
             <tr style="background-color: #e1dbd6; font-weight: bold;">
                 <td colspan="3">TOTAL ESTIMATED COST</td>
                 <td>-</td>
-                <td class="num highlight">₦{{summary.grand_total}}</td>
+                <td class="num highlight">₦{{fmt summary.grand_total}}</td>
             </tr>
         </tbody>
     </table>
@@ -217,22 +222,22 @@ export const PDF_TEMPLATE = `<!DOCTYPE html>
             <div class="summary-row">
                 <div class="summary-cell">
                     <div class="summary-label">Flooring Material</div>
-                    <div class="summary-val">₦{{summary.material_total}}</div>
+                    <div class="summary-val">₦{{fmt summary.material_total}}</div>
                     <div class="summary-val-sub">{{summary.material_sub}}</div>
                 </div>
                 <div class="summary-cell">
                     <div class="summary-label">Accessories & Adhesives</div>
-                    <div class="summary-val">₦{{summary.accessories_total}}</div>
+                    <div class="summary-val">₦{{fmt summary.accessories_total}}</div>
                     <div class="summary-val-sub">{{summary.accessories_sub}}</div>
                 </div>
                 <div class="summary-cell">
                     <div class="summary-label">Workmanship</div>
-                    <div class="summary-val">₦{{summary.workmanship_total}}</div>
+                    <div class="summary-val">₦{{fmt summary.workmanship_total}}</div>
                     <div class="summary-val-sub">{{summary.workmanship_sub}}</div>
                 </div>
                 <div class="summary-cell" style="background-color: #1a2e40; color: #ffffff; padding: 10px; border-radius: 3px;">
                     <div class="summary-label" style="color: #b89047; font-weight: bold;">Grand Total</div>
-                    <div class="summary-val" style="color: #ffffff; font-size: 14pt;">₦{{summary.grand_total}}</div>
+                    <div class="summary-val" style="color: #ffffff; font-size: 14pt;">₦{{fmt summary.grand_total}}</div>
                     <div class="summary-val-sub" style="color: #e1dbd6;">{{client_name}}'s Quote</div>
                 </div>
             </div>

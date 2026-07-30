@@ -99,7 +99,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const data: QuoteData = JSON.parse(content);
+    const cleaned = content.replace(/^```(?:json)?\s*/, "").replace(/\s*```\s*$/, "").trim();
+    const data: QuoteData = JSON.parse(cleaned);
     return NextResponse.json(data);
   } catch (error) {
     console.error("Parse quote error:", error);

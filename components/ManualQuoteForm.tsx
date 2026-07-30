@@ -56,9 +56,10 @@ export default function ManualQuoteForm({ form, onChange }: Props) {
       }
     }
     for (const c of form.customItems) {
-      if (category === "material" && c.description.toLowerCase().includes("vinyl")) total += c.amount;
-      if (category === "accessory" && !c.description.toLowerCase().includes("vinyl") && !c.description.toLowerCase().includes("workmanship")) total += c.amount;
-      if (category === "workmanship" && c.description.toLowerCase().includes("workmanship")) total += c.amount;
+      const desc = c.description.toLowerCase();
+      if (category === "material" && desc.includes("vinyl")) total += c.amount;
+      if (category === "accessory" && !desc.includes("vinyl") && !desc.includes("workmanship")) total += c.amount;
+      if (category === "workmanship" && desc.includes("workmanship")) total += c.amount;
     }
     return total;
   }
@@ -68,90 +69,145 @@ export default function ManualQuoteForm({ form, onChange }: Props) {
   const workmanshipTotal = categoryTotal("workmanship");
   const grandTotal = materialTotal + accessoriesTotal + workmanshipTotal;
 
-  const activeItems = STANDARD_ITEMS.filter((s) => form.items[s.key].qty > 0);
+  function inputCls(extra = "") {
+    return `w-full border border-gray-300 rounded-xl bg-white px-3 py-2.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[#b89047] focus:border-transparent transition-shadow ${extra}`;
+  }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {/* Client Details */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide mb-3">
+      <section className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
           Client Details
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="flex flex-col gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Client Name</label>
+            <label className="block text-xs text-gray-500 mb-1.5">Client Name</label>
             <input
               type="text"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b89047]"
+              className={inputCls("text-left")}
               value={form.client_name}
               onChange={(e) => onChange({ ...form, client_name: e.target.value })}
               placeholder="e.g. Mr Andrew"
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
-            <input
-              type="date"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b89047]"
-              value={form.date}
-              onChange={(e) => onChange({ ...form, date: e.target.value })}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">Date</label>
+              <input
+                type="date"
+                className={inputCls("text-left")}
+                value={form.date}
+                onChange={(e) => onChange({ ...form, date: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">Phone</label>
+              <input
+                type="tel"
+                className={inputCls("text-left")}
+                placeholder="Optional"
+              />
+            </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Project Title</label>
+            <label className="block text-xs text-gray-500 mb-1.5">Project Title</label>
             <input
               type="text"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b89047]"
+              className={inputCls("text-left")}
               value={form.title}
               onChange={(e) => onChange({ ...form, title: e.target.value })}
             />
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Standard Items */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide mb-3">
+      <section className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
           Flooring Items
         </h3>
-        <div className="overflow-x-auto">
+
+        {/* Mobile: card layout */}
+        <div className="sm:hidden flex flex-col gap-2">
+          {STANDARD_ITEMS.map((s) => {
+            const item = form.items[s.key];
+            return (
+              <div key={s.key} className="border border-gray-100 rounded-xl p-3 bg-gray-50/50">
+                <div className="text-sm font-medium text-gray-800 mb-2">{s.label}</div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Qty</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className={inputCls()}
+                      value={item.qty || ""}
+                      onChange={(e) => updateItem(s.key, "qty", Number(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Unit</label>
+                    <div className="text-sm text-gray-500 text-center pt-2.5">{s.unit}</div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Rate</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className={inputCls()}
+                      value={item.rate || ""}
+                      onChange={(e) => updateItem(s.key, "rate", Number(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
+                <div className="text-right text-sm font-semibold text-gray-800 mt-1.5">
+                  ₦{rowAmount(item).toLocaleString()}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop: table layout */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50">
-                <th className="text-left px-3 py-2 font-semibold text-gray-700 text-xs uppercase">Item</th>
-                <th className="text-right px-3 py-2 font-semibold text-gray-700 text-xs uppercase w-20">Qty</th>
-                <th className="text-center px-3 py-2 font-semibold text-gray-700 text-xs uppercase w-16">Unit</th>
-                <th className="text-right px-3 py-2 font-semibold text-gray-700 text-xs uppercase w-28">Rate (₦)</th>
-                <th className="text-right px-3 py-2 font-semibold text-gray-700 text-xs uppercase w-28">Amount (₦)</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600 text-xs uppercase">Item</th>
+                <th className="text-right px-3 py-2 font-semibold text-gray-600 text-xs uppercase w-20">Qty</th>
+                <th className="text-center px-3 py-2 font-semibold text-gray-600 text-xs uppercase w-14">Unit</th>
+                <th className="text-right px-3 py-2 font-semibold text-gray-600 text-xs uppercase w-28">Rate (₦)</th>
+                <th className="text-right px-3 py-2 font-semibold text-gray-600 text-xs uppercase w-28">Amount (₦)</th>
               </tr>
             </thead>
             <tbody>
               {STANDARD_ITEMS.map((s) => {
                 const item = form.items[s.key];
                 return (
-                  <tr key={s.key}>
-                    <td className="px-3 py-2 text-gray-800 font-medium">{s.label}</td>
-                    <td className="px-3 py-2">
+                  <tr key={s.key} className="border-t border-gray-100">
+                    <td className="px-3 py-2.5 text-gray-800 font-medium text-sm">{s.label}</td>
+                    <td className="px-3 py-2.5">
                       <input
                         type="number"
                         min="0"
-                        className="w-full border border-gray-300 rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-2 focus:ring-[#b89047]"
+                        className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-right text-sm focus:outline-none focus:ring-2 focus:ring-[#b89047] focus:border-transparent"
                         value={item.qty || ""}
                         onChange={(e) => updateItem(s.key, "qty", Number(e.target.value) || 0)}
                       />
                     </td>
-                    <td className="px-3 py-2 text-center text-gray-500">{s.unit}</td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2.5 text-center text-gray-500 text-sm">{s.unit}</td>
+                    <td className="px-3 py-2.5">
                       <input
                         type="number"
                         min="0"
-                        className="w-full border border-gray-300 rounded px-2 py-1 text-right text-sm focus:outline-none focus:ring-2 focus:ring-[#b89047]"
+                        className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-right text-sm focus:outline-none focus:ring-2 focus:ring-[#b89047] focus:border-transparent"
                         value={item.rate || ""}
                         onChange={(e) => updateItem(s.key, "rate", Number(e.target.value) || 0)}
                       />
                     </td>
-                    <td className="px-3 py-2 text-right font-medium text-gray-800">
-                      {rowAmount(item).toLocaleString()}
+                    <td className="px-3 py-2.5 text-right font-semibold text-gray-800 text-sm">
+                      ₦{rowAmount(item).toLocaleString()}
                     </td>
                   </tr>
                 );
@@ -159,98 +215,117 @@ export default function ManualQuoteForm({ form, onChange }: Props) {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
       {/* Custom Items */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <section className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide">
-            Custom Line Items
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            Custom Items
           </h3>
           <button
             type="button"
             onClick={addCustom}
-            className="text-xs bg-[#1a2e40] text-white px-3 py-1.5 rounded-md hover:bg-[#253d52] transition-colors"
+            className="text-xs bg-[#1a2e40] text-white px-3 py-1.5 rounded-lg hover:bg-[#253d52] transition-colors font-medium"
           >
-            + Add Item
+            + Add
           </button>
         </div>
         {form.customItems.length === 0 ? (
-          <p className="text-sm text-gray-400 italic">No custom items added.</p>
+          <p className="text-sm text-gray-400 italic text-center py-4">No custom items added.</p>
         ) : (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             {form.customItems.map((item, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Description"
-                  className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#b89047]"
-                  value={item.description}
-                  onChange={(e) => updateCustom(i, "description", e.target.value)}
-                />
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="Qty"
-                  className="w-16 border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[#b89047]"
-                  value={item.qty || ""}
-                  onChange={(e) => updateCustom(i, "qty", Number(e.target.value) || 0)}
-                />
-                <input
-                  type="text"
-                  placeholder="Unit"
-                  className="w-16 border border-gray-300 rounded px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#b89047]"
-                  value={item.unit}
-                  onChange={(e) => updateCustom(i, "unit", e.target.value)}
-                />
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="Rate"
-                  className="w-24 border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[#b89047]"
-                  value={item.rate || ""}
-                  onChange={(e) => updateCustom(i, "rate", Number(e.target.value) || 0)}
-                />
-                <span className="text-sm font-medium text-gray-800 w-24 text-right">
-                  ₦{(item.qty * item.rate).toLocaleString()}
-                </span>
+              <div key={i} className="border border-gray-100 rounded-xl p-3 bg-gray-50/50">
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div className="col-span-2">
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Description</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Underlay"
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b89047] focus:border-transparent"
+                      value={item.description}
+                      onChange={(e) => updateCustom(i, "description", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Qty</label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[#b89047] focus:border-transparent"
+                      value={item.qty || ""}
+                      onChange={(e) => updateCustom(i, "qty", Number(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Unit</label>
+                    <input
+                      type="text"
+                      placeholder="m²"
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#b89047] focus:border-transparent"
+                      value={item.unit}
+                      onChange={(e) => updateCustom(i, "unit", e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-2 grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-0.5">Rate (₦)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[#b89047] focus:border-transparent"
+                        value={item.rate || ""}
+                        onChange={(e) => updateCustom(i, "rate", Number(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-0.5">Amount</label>
+                      <div className="pt-2 text-sm font-semibold text-gray-800 text-right">
+                        ₦{(item.qty * item.rate).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <button
                   type="button"
                   onClick={() => removeCustom(i)}
-                  className="text-red-500 hover:text-red-700 text-lg leading-none"
+                  className="w-full text-xs text-red-500 hover:text-red-700 font-medium py-1"
                 >
-                  ×
+                  Remove
                 </button>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </section>
 
       {/* Live Summary */}
-      <div className="bg-[#f0ede6] border border-gray-300 rounded-lg p-4">
-        <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
-          Quote Summary
+      <section className="bg-[#f0ede6] rounded-2xl border border-gray-200 p-4 shadow-sm">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+          Summary
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white rounded p-3 border border-gray-200">
-            <div className="text-xs text-gray-500 uppercase">Material</div>
-            <div className="text-lg font-bold text-[#1a2e40]">₦{materialTotal.toLocaleString()}</div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-white rounded-xl p-3 border border-gray-100">
+            <div className="text-[10px] text-gray-400 uppercase tracking-wide">Material</div>
+            <div className="text-base font-bold text-[#1a2e40]">₦{materialTotal.toLocaleString()}</div>
           </div>
-          <div className="bg-white rounded p-3 border border-gray-200">
-            <div className="text-xs text-gray-500 uppercase">Accessories</div>
-            <div className="text-lg font-bold text-[#1a2e40]">₦{accessoriesTotal.toLocaleString()}</div>
+          <div className="bg-white rounded-xl p-3 border border-gray-100">
+            <div className="text-[10px] text-gray-400 uppercase tracking-wide">Accessories</div>
+            <div className="text-base font-bold text-[#1a2e40]">₦{accessoriesTotal.toLocaleString()}</div>
           </div>
-          <div className="bg-white rounded p-3 border border-gray-200">
-            <div className="text-xs text-gray-500 uppercase">Workmanship</div>
-            <div className="text-lg font-bold text-[#1a2e40]">₦{workmanshipTotal.toLocaleString()}</div>
+          <div className="bg-white rounded-xl p-3 border border-gray-100">
+            <div className="text-[10px] text-gray-400 uppercase tracking-wide">Workmanship</div>
+            <div className="text-base font-bold text-[#1a2e40]">₦{workmanshipTotal.toLocaleString()}</div>
           </div>
-          <div className="bg-[#1a2e40] rounded p-3">
-            <div className="text-xs text-[#b89047] uppercase font-bold">Grand Total</div>
-            <div className="text-lg font-bold text-white">₦{grandTotal.toLocaleString()}</div>
+          <div className="bg-[#1a2e40] rounded-xl p-3">
+            <div className="text-[10px] text-[#b89047] uppercase tracking-wide font-semibold">Total</div>
+            <div className="text-base font-bold text-white">₦{grandTotal.toLocaleString()}</div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

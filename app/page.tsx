@@ -35,14 +35,7 @@ function manualFormToQuoteData(form: ManualFormState): QuoteData {
     const v = form.items[s.key];
     if (!v.qty) continue;
     const amount = v.qty * v.rate;
-    const item: QuoteItem = {
-      description: s.label,
-      qty: v.qty,
-      unit: s.unit,
-      rate: v.rate,
-      amount,
-    };
-    items.push(item);
+    items.push({ description: s.label, qty: v.qty, unit: s.unit, rate: v.rate, amount });
 
     if (s.category === "material") {
       materialTotal += amount;
@@ -102,12 +95,14 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const generatePdf = useCallback(async (data: QuoteData) => {
     setLoading(true);
     setError(null);
     setPdfUrl(null);
+    setShowPreview(true);
     try {
       const res = await fetch("/api/generate-pdf", {
         method: "POST",
@@ -132,6 +127,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setPdfUrl(null);
+    setShowPreview(true);
     try {
       const res = await fetch("/api/parse-quote", {
         method: "POST",
@@ -144,7 +140,6 @@ export default function Home() {
       }
       const data: QuoteData = await res.json();
 
-      // Sync parsed data into manual form state
       const form = defaultForm();
       form.client_name = data.client_name;
       form.date = data.date;
@@ -175,21 +170,22 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="bg-[#1a2e40] text-white px-6 py-4 shadow-md">
-        <h1 className="text-xl font-bold tracking-wide">
+    <div className="min-h-screen flex flex-col bg-[#f5f3f0]">
+      {/* Header */}
+      <header className="bg-[#1a2e40] text-white px-4 sm:px-6 py-3 sm:py-4 shadow-sm">
+        <h1 className="text-base sm:text-xl font-bold tracking-wide">
           JOBON INTERNATIONAL LTD
         </h1>
-        <p className="text-[#b89047] text-sm tracking-widest uppercase">
+        <p className="text-[#b89047] text-[11px] sm:text-sm tracking-widest uppercase">
           Quotation Generator
         </p>
       </header>
 
       {/* Mode Toggle */}
-      <div className="flex border-b border-gray-300 bg-white px-4">
+      <div className="flex bg-white border-b border-gray-200">
         <button
           onClick={() => setMode("ai")}
-          className={`px-5 py-3 text-sm font-semibold tracking-wide uppercase transition-colors ${
+          className={`flex-1 sm:flex-none px-4 sm:px-6 py-3 text-xs sm:text-sm font-semibold tracking-wide uppercase transition-colors ${
             mode === "ai"
               ? "text-[#1a2e40] border-b-2 border-[#b89047]"
               : "text-gray-400 hover:text-gray-600"
@@ -199,7 +195,7 @@ export default function Home() {
         </button>
         <button
           onClick={() => setMode("manual")}
-          className={`px-5 py-3 text-sm font-semibold tracking-wide uppercase transition-colors ${
+          className={`flex-1 sm:flex-none px-4 sm:px-6 py-3 text-xs sm:text-sm font-semibold tracking-wide uppercase transition-colors ${
             mode === "manual"
               ? "text-[#1a2e40] border-b-2 border-[#b89047]"
               : "text-gray-400 hover:text-gray-600"
@@ -209,28 +205,28 @@ export default function Home() {
         </button>
       </div>
 
-      <main className="flex-1 flex flex-col md:flex-row gap-4 p-4">
+      <main className="flex-1 flex flex-col sm:flex-row gap-3 sm:gap-4 p-3 sm:p-4 max-w-7xl mx-auto w-full">
         {/* Left Pane */}
-        <div className="flex-1 flex flex-col gap-4">
+        <div className="flex-1 flex flex-col gap-3">
           {mode === "ai" ? (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex-1 flex flex-col">
-              <label className="text-sm font-semibold text-gray-700 mb-2">
+            <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm flex-1 flex flex-col">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Raw Quotation Input
               </label>
               <textarea
-                className="flex-1 w-full border border-gray-300 rounded-md p-3 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-[#b89047] min-h-[300px]"
-                placeholder={`Paste quotation notes here...\n\ne.g.: make a quotation for Mr Andrew\nvinyl: 52sqm * 9,000\nskirting: 40m * 2,500\nadhesive: 45,000\nlabour: 150,000`}
+                className="flex-1 w-full border border-gray-300 rounded-xl p-3 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-[#b89047] focus:border-transparent min-h-[200px] sm:min-h-[300px] transition-shadow"
+                placeholder={`Paste quotation notes here...\n\ne.g.: make a quotation for Mr Andrew\nvinyl: 52sqm * 9,000\nskirting: 40m * 2,500`}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
               />
               <button
                 onClick={handleAiGenerate}
                 disabled={loading || !prompt.trim()}
-                className="mt-4 bg-[#1a2e40] hover:bg-[#253d52] disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors tracking-wide uppercase text-sm"
+                className="mt-3 bg-[#1a2e40] hover:bg-[#253d52] disabled:bg-gray-300 disabled:text-gray-500 text-white font-semibold py-3 sm:py-3.5 px-6 rounded-xl transition-colors tracking-wide uppercase text-sm"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
@@ -247,11 +243,11 @@ export default function Home() {
               <button
                 onClick={handleManualGenerate}
                 disabled={loading || !manualForm.client_name.trim()}
-                className="mt-4 w-full bg-[#1a2e40] hover:bg-[#253d52] disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors tracking-wide uppercase text-sm"
+                className="mt-3 w-full bg-[#1a2e40] hover:bg-[#253d52] disabled:bg-gray-300 disabled:text-gray-500 text-white font-semibold py-3 sm:py-3.5 px-6 rounded-xl transition-colors tracking-wide uppercase text-sm"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
@@ -265,43 +261,63 @@ export default function Home() {
           )}
 
           {error && (
-            <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 text-sm">
+            <div className="bg-red-50 text-red-700 border border-red-200 rounded-xl p-3 text-sm">
               {error}
             </div>
           )}
         </div>
 
         {/* Right Pane - PDF Preview */}
-        <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <span className="text-sm font-semibold text-gray-700">
-              PDF Preview
-            </span>
-            {pdfUrl && (
-              <a
-                href={pdfUrl}
-                download={`quotation.pdf`}
-                className="text-sm text-[#b89047] hover:text-[#a07a30] font-medium underline"
-              >
-                Download PDF
-              </a>
-            )}
-          </div>
-          <div className="flex-1 p-4">
-            {pdfUrl ? (
-              <iframe
-                ref={iframeRef}
-                src={pdfUrl}
-                className="w-full h-full border border-gray-200 rounded-md"
-                title="PDF Preview"
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-                {loading ? "Generating PDF..." : "Your PDF preview will appear here"}
+        {showPreview && (
+          <div className="sm:flex-1 bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col sm:min-h-[500px]">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                PDF Preview
+              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowPreview(false)}
+                  className="sm:hidden text-xs text-gray-400 hover:text-gray-600"
+                >
+                  Hide
+                </button>
+                {pdfUrl && (
+                  <a
+                    href={pdfUrl}
+                    download={`quotation.pdf`}
+                    className="text-xs text-[#b89047] hover:text-[#a07a30] font-medium"
+                  >
+                    Download
+                  </a>
+                )}
               </div>
-            )}
+            </div>
+            <div className="flex-1 p-3 sm:p-4">
+              {pdfUrl ? (
+                <iframe
+                  ref={iframeRef}
+                  src={pdfUrl}
+                  className="w-full h-[400px] sm:h-full border border-gray-100 rounded-xl"
+                  title="PDF Preview"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-[200px] sm:h-full text-gray-400 text-sm">
+                  {loading ? "Generating PDF..." : "Your PDF preview will appear here"}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Mobile: show preview button when hidden */}
+        {!showPreview && pdfUrl && (
+          <button
+            onClick={() => setShowPreview(true)}
+            className="sm:hidden bg-white border border-gray-200 rounded-xl py-3 text-sm font-semibold text-[#1a2e40] shadow-sm"
+          >
+            Show PDF Preview
+          </button>
+        )}
       </main>
     </div>
   );
