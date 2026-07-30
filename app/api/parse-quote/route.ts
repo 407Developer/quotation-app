@@ -25,7 +25,7 @@ function getAI() {
 function getModel() {
   const provider = process.env.AI_PROVIDER || "openai";
   if (process.env.AI_MODEL) return process.env.AI_MODEL;
-  if (provider === "groq") return "llama3-70b-8192";
+  if (provider === "groq") return "llama-3.3-70b-versatile";
   return "gpt-4o-mini";
 }
 
