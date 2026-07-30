@@ -2,9 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { QuoteData } from "@/lib/types";
 
-function getOpenAI() {
-  if (!process.env.OPENAI_API_KEY) return null;
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function getAI() {
+  const key = process.env.AI_API_KEY || process.env.OPENAI_API_KEY;
+  if (!key) return null;
+
+  const provider = process.env.AI_PROVIDER || "openai";
+  const config: Record<string, string> = { apiKey: key };
+
+  if (provider === "groq") {
+    config.baseURL = "https://api.groq.com/openai/v1";
+  } else if (provider === "openai") {
+    // default OpenAI
+  }
+  // Allow custom base URL override
+  if (process.env.AI_BASE_URL) {
+    config.baseURL = process.env.AI_BASE_URL;
+  }
+
+  return new OpenAI(config);
+}
+
+function getModel() {
+  const provider = process.env.AI_PROVIDER || "openai";
+  if (process.env.AI_MODEL) return process.env.AI_MODEL;
+  if (provider === "groq") return "llama3-70b-8192";
+  return "gpt-4o-mini";
 }
 
 const SYSTEM_PROMPT = `You are a quotation parser. Convert raw text flooring quotations into structured JSON.
@@ -54,20 +76,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const client = getOpenAI();
+    const client = getAI();
     if (!client) {
       const mockData = mockParse(prompt);
       return NextResponse.json(mockData);
     }
 
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: getModel(),
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: prompt },
       ],
       temperature: 0.1,
-      response_format: { type: "json_object" },
     });
 
     const content = completion.choices[0]?.message?.content;
