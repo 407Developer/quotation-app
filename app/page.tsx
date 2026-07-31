@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import ManualQuoteForm from "@/components/ManualQuoteForm";
 import { ManualFormState, STANDARD_ITEMS, QuoteData, QuoteItem } from "@/lib/types";
+import { generatePdfClient } from "@/lib/clientPdf";
 
 function todayStr() {
   return new Date().toISOString().split("T")[0];
@@ -104,19 +105,10 @@ export default function Home() {
     setPdfUrl(null);
     setShowPreview(true);
     try {
-      const res = await fetch("/api/generate-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to generate PDF");
-      }
-      const blob = await res.blob();
+      const blob = await generatePdfClient(data);
       setPdfUrl(URL.createObjectURL(blob));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(err instanceof Error ? err.message : "Failed to generate PDF");
     } finally {
       setLoading(false);
     }
@@ -165,13 +157,11 @@ export default function Home() {
   }
 
   function handleManualGenerate() {
-    const data = manualFormToQuoteData(manualForm);
-    generatePdf(data);
+    generatePdf(manualFormToQuoteData(manualForm));
   }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f5f3f0]">
-      {/* Header */}
       <header className="bg-[#1a2e40] text-white px-4 sm:px-6 py-3 sm:py-4 shadow-sm">
         <h1 className="text-base sm:text-xl font-bold tracking-wide">
           JOBON INTERNATIONAL LTD
@@ -181,7 +171,6 @@ export default function Home() {
         </p>
       </header>
 
-      {/* Mode Toggle */}
       <div className="flex bg-white border-b border-gray-200">
         <button
           onClick={() => setMode("ai")}
@@ -206,7 +195,6 @@ export default function Home() {
       </div>
 
       <main className="flex-1 flex flex-col sm:flex-row gap-3 sm:gap-4 p-3 sm:p-4 max-w-7xl mx-auto w-full">
-        {/* Left Pane */}
         <div className="flex-1 flex flex-col gap-3">
           {mode === "ai" ? (
             <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm flex-1 flex flex-col">
@@ -267,7 +255,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* Right Pane - PDF Preview */}
         {showPreview && (
           <div className="sm:flex-1 bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col sm:min-h-[500px]">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -309,7 +296,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Mobile: show preview button when hidden */}
         {!showPreview && pdfUrl && (
           <button
             onClick={() => setShowPreview(true)}
