@@ -12,7 +12,9 @@ export async function generatePdfClient(data: QuoteData): Promise<Blob> {
   container.style.left = "-9999px";
   container.style.top = "0";
   container.style.width = "210mm";
+  container.style.padding = "15mm";
   container.style.backgroundColor = "#fcfbfa";
+  container.style.boxSizing = "border-box";
   document.body.appendChild(container);
 
   const canvas = await html2canvas(container, {
