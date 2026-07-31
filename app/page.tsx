@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import ManualQuoteForm from "@/components/ManualQuoteForm";
 import { ManualFormState, STANDARD_ITEMS, QuoteData, QuoteItem } from "@/lib/types";
 import { generatePdfClient } from "@/lib/clientPdf";
+import { compileTemplate } from "@/lib/template";
 import { getHistory, addHistory, deleteHistory, clearHistory, HistoryEntry } from "@/lib/history";
 
 const ICONS = {
@@ -63,31 +64,62 @@ export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [manualForm, setManualForm] = useState<ManualFormState>(defaultForm());
   const [loading, setLoading] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const pdfBlobRef = useRef<Blob | null>(null);
 
   useEffect(() => { setHistory(getHistory()); }, []);
 
   function refreshHistory() { setHistory([...getHistory()]); }
 
-  const generatePdf = useCallback(async (data: QuoteData) => {
-    setLoading(true); setError(null); setPdfUrl(null); setShowPreview(true);
+  async function generatePdfBlob(data: QuoteData): Promise<Blob> {
+    const blob = await generatePdfClient(data);
+    pdfBlobRef.current = blob;
+    return blob;
+  }
+
+  async function handleGenerate(data: QuoteData) {
+    setLoading(true); setError(null); setShowPreview(true);
     try {
-      setPdfUrl(URL.createObjectURL(await generatePdfClient(data)));
+      const html = compileTemplate(data as unknown as Record<string, unknown>);
+      setPreviewHtml(html);
       addHistory(data);
       refreshHistory();
+      generatePdfBlob(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate PDF");
+      setError(err instanceof Error ? err.message : "Failed to generate preview");
     } finally { setLoading(false); }
-  }, []);
+  }
+
+  async function handleDownload() {
+    if (!previewHtml) return;
+    setDownloading(true);
+    try {
+      let blob = pdfBlobRef.current;
+      if (!blob) {
+        const data = manualFormToQuoteData(manualForm);
+        blob = await generatePdfBlob(data);
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "quotation.pdf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to download PDF");
+    } finally { setDownloading(false); }
+  }
 
   async function handleAiGenerate() {
     if (!prompt.trim()) return;
-    setLoading(true); setError(null); setPdfUrl(null); setShowPreview(true);
+    setLoading(true); setError(null); setPreviewHtml(null); setShowPreview(true);
     try {
       const res = await fetch("/api/parse-quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt }) });
       if (!res.ok) throw new Error((await res.json()).error || "Failed to parse");
@@ -100,16 +132,17 @@ export default function Home() {
         else form.customItems.push({ ...item });
       }
       setManualForm(form);
-      await generatePdf(data);
+      await handleGenerate(data);
     } catch (err) { setError(err instanceof Error ? err.message : "Something went wrong"); } finally { setLoading(false); }
   }
 
-  function handleManualGenerate() { generatePdf(manualFormToQuoteData(manualForm)); }
+  function handleManualGenerate() { handleGenerate(manualFormToQuoteData(manualForm)); }
 
   async function handleHistoryClick(entry: HistoryEntry) {
-    setLoading(true); setError(null); setPdfUrl(null); setShowPreview(true); setShowHistory(false);
+    setLoading(true); setError(null); setPreviewHtml(null); setShowPreview(true); setShowHistory(false);
     try {
-      setPdfUrl(URL.createObjectURL(await generatePdfClient(entry.quoteData)));
+      setPreviewHtml(compileTemplate(entry.quoteData as unknown as Record<string, unknown>));
+      generatePdfBlob(entry.quoteData);
       const form = defaultForm();
       form.client_name = entry.quoteData.client_name; form.date = entry.quoteData.date; form.title = entry.quoteData.title;
       for (const item of entry.quoteData.items) {
@@ -153,7 +186,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* History Panel */}
       {showHistory && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-20 bg-black/30 backdrop-blur-sm" onClick={() => setShowHistory(false)}>
           <div className="w-full max-w-lg mx-3 bg-white rounded-2xl shadow-xl border border-gray-200 max-h-[70vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -230,16 +262,32 @@ export default function Home() {
               <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Preview</span>
               <div className="flex items-center gap-3">
                 <button onClick={() => setShowPreview(false)} className="sm:hidden text-xs text-gray-400 hover:text-gray-600">Hide</button>
-                {pdfUrl && (
-                  <a href={pdfUrl} download="quotation.pdf" className="text-xs font-medium text-[#b89047] hover:text-[#a07a30] flex items-center gap-1.5">
-                    <Icon path={ICONS.download} className="w-3.5 h-3.5" /> Download
-                  </a>
+                {previewHtml && (
+                  <button onClick={handleDownload}
+                    className="bg-[#1a2e40] hover:bg-[#253d52] text-white text-xs font-semibold py-1.5 px-3 rounded-lg transition-all flex items-center gap-1.5"
+                  >
+                    {downloading ? (
+                      <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                    ) : (
+                      <Icon path={ICONS.download} className="w-3.5 h-3.5" />
+                    )}
+                    {downloading ? "Preparing..." : "Download PDF"}
+                  </button>
                 )}
               </div>
             </div>
-            <div className="flex-1 p-3 sm:p-4">
-              {pdfUrl ? (
-                <iframe ref={iframeRef} src={pdfUrl} className="w-full h-[400px] sm:h-full border border-gray-100 rounded-xl bg-white" title="PDF Preview" />
+            <div className="flex-1 p-0 overflow-hidden">
+              {previewHtml ? (
+                <div className="w-full h-[500px] sm:h-full overflow-auto">
+                  <style>{`
+                    .preview-frame { width: 210mm; margin: 0 auto; background: #fcfbfa; transform-origin: top left; }
+                    @media (max-width: 640px) {
+                      .preview-frame { width: 100%; }
+                      .preview-frame body { padding: 10px; }
+                    }
+                  `}</style>
+                  <div className="preview-frame" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                </div>
               ) : (
                 <div className="flex items-center justify-center h-[200px] sm:h-full text-gray-400 text-sm">{loading ? "Generating..." : "Preview will appear here"}</div>
               )}
@@ -247,7 +295,7 @@ export default function Home() {
           </div>
         )}
 
-        {!showPreview && pdfUrl && (
+        {!showPreview && previewHtml && (
           <button onClick={() => setShowPreview(true)} className="sm:hidden bg-white border border-gray-200 rounded-xl py-3 text-sm font-semibold text-[#1a2e40] shadow-sm">Show Preview</button>
         )}
       </main>
